@@ -1,0 +1,186 @@
+/* constants to denote the minimum and maximum values a sensor can measure */
+/* and ranges for the respective constants */
+
+/* constants for sample range of sensors */
+const BEG_SENSOR = 0
+const END_SENSOR = 3
+range SensorRange = BEG_SENSOR..END_SENSOR
+
+/* constants to denote what values denote safe and unsafe behaviour*/
+const BEG_SAFE = BEG_SENSOR
+const END_SAFE = 1
+range SafeRange = BEG_SAFE..END_SAFE
+
+const BEG_UNSAFE = END_SAFE + 1
+const END_UNSAFE = END_SENSOR
+range UnsafeRange = BEG_UNSAFE..END_UNSAFE
+
+/* constants for camera samples */
+const OBJECT_CLOSE = 0
+const OBJECT_FAR = 4
+const OBJECT_MID = OBJECT_FAR / 2
+range ObjectFarProximity = OBJECT_MID..OBJECT_FAR
+range ObjectCloseProximity = OBJECT_CLOSE..OBJECT_MID
+
+/* constants for battery status */
+const EMPTY_BATTERY = 0
+const FULL_BATTERY  = 3
+const MID_BATTERY   = FULL_BATTERY / 2
+range ChargeRange  = EMPTY_BATTERY..FULL_BATTERY
+range LowChargeRange    = EMPTY_BATTERY..MID_BATTERY
+range GoodChargeRange   = MID_BATTERY..FULL_BATTERY
+
+/* constants for grip strength */
+const MIN_STRENGTH = 0
+const MAX_STRENGTH = 3 
+const MID_STRENGTH = MAX_STRENGTH / 2 
+range StrengthRange = MIN_STRENGTH..MAX_STRENGTH
+range LowStrengthRange  = MIN_STRENGTH..MID_STRENGTH
+range HighStrengthRange = MID_STRENGTH..MAX_STRENGTH
+
+/* constants for wifi strength monitor */
+const MIN_WIFI_STRENGTH = 0
+const MAX_WIFI_STRENGTH = 4
+const MID_WIFI_STRENGTH = MAX_WIFI_STRENGTH / 2
+range WifiRange          = MIN_STRENGTH..MAX_STRENGTH
+range BadWifiRange      = MIN_WIFI_STRENGTH..MID_WIFI_STRENGTH
+range GoodWifiRange     = MID_WIFI_STRENGTH..MAX_WIFI_STRENGTH
+
+
+/* constants that denote behavior to be executed by the driver and ranges
+   that denote respective behavior. */
+
+/* motor driver */
+const SPEED_UP   = 0
+const SLOW_DOWN  = 1
+const TURN_RIGHT = 2
+const TURN_LEFT  = 3
+range MotorDriverStates = SPEED_UP..TURN_LEFT
+
+/* arm driver */
+const INCREASE_STRENGTH = 0
+const DECREASE_STRENGTH = 1
+range ArmDriverStates = INCREASE_STRENGTH..DECREASE_STRENGTH
+
+/* body driver */
+const INCREASE_LIFT = 0
+const DECREASE_LIFT = 1
+range BodyDriverStates = INCREASE_LIFT..DECREASE_LIFT
+
+/* network driver */
+const SWITCH_TO_4G = 0
+const SWITCH_TO_WIFI = 1
+range NetworkDriverStates = SWITCH_TO_4G..SWITCH_TO_WIFI
+
+
+/* Controls measured values */
+Controller = (checkAcceleration->AccelerationMonitor
+             |checkCamera->CameraMonitor
+             |checkLaser->LaserMonitor
+             |checkBattery->BatteryMonitor
+             |checkArm->ArmMonitor
+             |checkLift->BodyMonitor
+             |checkJoint->JointMonitor
+             |checkWifi->WifiMonitor
+             ),
+
+/* Monitor acceleration measured with safety Module's or Rose her accelerometer */
+/* AccelerationMonitor has access to the MotorDriver */
+AccelerationMonitor = (safe_acc->safeAcceleration->Controller
+                      |unsafe_acc->unsafeAcceleration->signal->MotorDriver[SLOW_DOWN]),
+
+/* Monitor safety module's or Rose's camera */
+/* CameraMonitor has access to the MotorDriver */
+CameraMonitor = (safe_detect->noNearObject->Controller
+                |unsafe_detect->objectCloseBy->signal->MotorDriver[SLOW_DOWN]),
+
+/* Monitor Rose her LIDAR */
+LaserMonitor = (safe_scn->safeScan->Controller
+               |unsafe_scn->unsafeScan->signal->Controller),
+
+/* Monitor the grip arm of Rose */
+ArmMonitor = (low_str->lowStrength->Controller
+             |high_str->highStrength->signal->ArmDriver[DECREASE_STRENGTH]),
+
+/* Monitor the battery charge of Rose */
+BatteryMonitor = (good_bat->goodBattery->Controller
+                 |low_bat->lowBattery->signal->Controller),
+
+/* Monitor the lift of Rose her body */
+BodyMonitor = (getLift->Controller),
+
+/* Monitor the state of the joints */
+JointMonitor = (getJointState->Controller),
+
+/* Monitor the strength of the wifi signal */
+WifiMonitor = (good_wf->goodWifi->Controller
+              |low_wf->lowWifi->signal->NetworkDriver[SWITCH_TO_4G]),
+
+/* Actuator drivers */
+MotorDriver[i:MotorDriverStates] = (when(i==SPEED_UP)   speedUp->Controller
+                                   |when(i==SLOW_DOWN)  slowDown->Controller
+                                   |when(i==TURN_RIGHT) turnRight->Controller
+                                   |when(i==TURN_LEFT)  turnLeft->Controller
+                                   ),
+
+CameraDriver = (turnLeft90degrees->CameraDriver
+               |turnRight90degrees->CameraDriver
+               ),
+
+ArmDriver[i:ArmDriverStates] = (when(i==INCREASE_STRENGTH) increaseGripStrength->Controller
+                               |when(i==DECREASE_STRENGTH) decreaseGripStrength->Controller),
+
+BodyDriver[i:BodyDriverStates] = (when(i==INCREASE_LIFT) increaseLift->Controller
+                                 |when(i==DECREASE_LIFT) decreaseLift->Controller),
+
+NetworkDriver[i:NetworkDriverStates] = (when(i==SWITCH_TO_4G) switchTo4G->Controller).
+
+/* TODO: What can we do with the joints? */
+
+
+
+/* Operator gets signalled by safety controller */
+Operator = (readError->Operator).
+
+/* Sensors and peripherals */
+Accelerometer = (measure[i:SensorRange]->Accelerometer).
+Camera        = (measure[i:ObjectCloseProximity]->Camera).
+LaserScanner  = (measure[i:SensorRange]->LaserScanner).
+Arm           = (getGripStrengh[i:StrengthRange]->Arm).
+Battery       = (getStatus[i:ChargeRange]->Battery).
+Body          = (getLift[i:SensorRange]->Body).  /* Of interest for us is the lift of the body. */
+Joint         = (getJointState[i:SensorRange]->Joint). 
+WifiInterface = (getWifiStrength[i:WifiRange]->WifiInterface).
+
+
+/* The system consists of the controller, the operator and all the sensors,
+ * peripherals and actuators. */
+||System = (controller:Controller
+           || operator:Operator
+           || {smAccelerometer,roseAccelerometer}:Accelerometer
+           || {smCamera,roseCamera}:Camera
+           || roseLidar:LaserScanner
+           || roseBattery:Battery
+           || roseArm:Arm
+           || roseBody:Body
+           || roseJoint:Joint
+           || roseWifi:WifiInterface
+)
+/* Couple controller actions to sensor,peripheral,actuator actions */
+/{{smAccelerometer,roseAccelerometer}.measure[i:SafeRange]/controller.safe_acc,
+  {smAccelerometer,roseAccelerometer}.measure[j:UnsafeRange]/controller.unsafe_acc,
+  {smCamera,roseCamera}.measure[k:ObjectFarProximity]/controller.safe_detect,
+  {smCamera,roseCamera}.measure[l:ObjectCloseProximity]/controller.unsafe_detect,
+  roseLidar.measure[m:SafeRange]/controller.safe_scn,
+  roseLidar.measure[n:UnsafeRange]/controller.unsafe_scn,
+  roseArm.getGripStrengh[o:HighStrengthRange]/controller.high_str,
+  roseArm.getGripStrengh[o:LowStrengthRange]/controller.low_str,
+  roseBattery.getStatus[q:GoodChargeRange]/controller.good_bat,
+  roseBattery.getStatus[r:LowChargeRange]/controller.low_bat,
+  roseBody.getLift[s:SensorRange]/controller.getLift,
+  roseJoint.getJointState[t:SensorRange]/controller.getJointState,
+  roseWifi.getWifiStrength[u:BadWifiRange]/controller.low_wf,
+  roseWifi.getWifiStrength[v:GoodWifiRange]/controller.good_wf,
+  /* The controller sends a signal to the operator when the robot shows unsafe behaviour. */
+  operator.readError/controller.signal
+  }.
