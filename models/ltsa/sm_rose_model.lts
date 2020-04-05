@@ -113,27 +113,30 @@ BodyMonitor = (getLift->Controller),
 JointMonitor = (getJointState->Controller),
 
 /* Monitor the strength of the wifi signal */
-WifiMonitor = (good_wf->goodWifi->Controller
+/* The idea is that if Roseis already using WIFI/4G
+   the SWITCH_TO[WIFI/4G] has no effect */
+WifiMonitor = (good_wf->goodWifi->NetworkDriver[SWITCH_TO_WIFI]
               |low_wf->lowWifi->signal->NetworkDriver[SWITCH_TO_4G]),
 
 /* Actuator drivers */
-MotorDriver[i:MotorDriverStates] = (when(i==SPEED_UP)   speedUp->Controller
-                                   |when(i==SLOW_DOWN)  slowDown->Controller
-                                   |when(i==TURN_RIGHT) turnRight->Controller
-                                   |when(i==TURN_LEFT)  turnLeft->Controller
+MotorDriver[i:MotorDriverStates] = (when(i==SPEED_UP)   motordriver.speedUp->Controller
+                                   |when(i==SLOW_DOWN)  motordriver.slowDown->Controller
+                                   |when(i==TURN_RIGHT) motordriver.turnRight->Controller
+                                   |when(i==TURN_LEFT)  motordriver.turnLeft->Controller
                                    ),
 
-CameraDriver = (turnLeft90degrees->CameraDriver
-               |turnRight90degrees->CameraDriver
+CameraDriver = (cameradriver.turnLeft90degrees->CameraDriver
+               |cameradriver.turnRight90degrees->CameraDriver
                ),
 
-ArmDriver[i:ArmDriverStates] = (when(i==INCREASE_STRENGTH) increaseGripStrength->Controller
-                               |when(i==DECREASE_STRENGTH) decreaseGripStrength->Controller),
+ArmDriver[i:ArmDriverStates] = (when(i==INCREASE_STRENGTH) armdriver.increaseGripStrength->Controller
+                               |when(i==DECREASE_STRENGTH) armdriver.decreaseGripStrength->Controller),
 
-BodyDriver[i:BodyDriverStates] = (when(i==INCREASE_LIFT) increaseLift->Controller
-                                 |when(i==DECREASE_LIFT) decreaseLift->Controller),
+BodyDriver[i:BodyDriverStates] = (when(i==INCREASE_LIFT) bodydriver.increaseLift->Controller
+                                 |when(i==DECREASE_LIFT) bodydriver.decreaseLift->Controller),
 
-NetworkDriver[i:NetworkDriverStates] = (when(i==SWITCH_TO_4G) switchTo4G->Controller).
+NetworkDriver[i:NetworkDriverStates] = (when(i==SWITCH_TO_WIFI) networkdriver.switchToWifi->Controller
+                                       |when(i==SWITCH_TO_4G)   networkdriver.switchTo4G->Controller).
 
 /* TODO: What can we do with the joints? */
 
