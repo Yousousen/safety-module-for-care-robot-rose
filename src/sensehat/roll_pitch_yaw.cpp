@@ -28,5 +28,7 @@ int main() {
         RTIMU_DATA imuData = imu->getIMUData();
 
         printf("%s\n", RTMath::displayDegrees("", imuData.fusionPose));
+        printf("%s\n", RTMath::displayDegrees("", imuData.fusionPose));
+        printf("%s\n", RTMath::displayDegrees("acceleration:", imuData.accel));
     }
 }
