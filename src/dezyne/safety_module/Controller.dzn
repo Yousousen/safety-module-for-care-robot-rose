@@ -1,0 +1,12 @@
+extern values $long$;
+
+interface IController {
+	in void osu();
+  	behaviour {
+  		on osu: {}
+  	}
+}
+
+component Controller {
+  provides IController iController;
+}

@@ -26,44 +26,6 @@ struct fb_t {
 };
 struct fb_t *fb;
 
-static int is_event_device(const struct dirent *dir)
-{
-	return strncmp(EVENT_DEV_NAME, dir->d_name,
-		       strlen(EVENT_DEV_NAME)-1) == 0;
-}
-
-static int open_evdev(const char *dev_name)
-{
-	struct dirent **namelist;
-	int i, ndev;
-	int fd = -1;
-
-	ndev = scandir(DEV_INPUT_EVENT, &namelist, is_event_device, versionsort);
-	if (ndev <= 0)
-		return ndev;
-
-	for (i = 0; i < ndev; i++)
-	{
-		char fname[64];
-		char name[256];
-
-		snprintf(fname, sizeof(fname),
-			 "%s/%s", DEV_INPUT_EVENT, namelist[i]->d_name);
-		fd = open(fname, O_RDONLY);
-		if (fd < 0)
-			continue;
-		ioctl(fd, EVIOCGNAME(sizeof(name)), name);
-		if (strcmp(dev_name, name) == 0)
-			break;
-		close(fd);
-	}
-
-	for (i = 0; i < ndev; i++)
-		free(namelist[i]);
-
-	return fd;
-}
-
 static int is_framebuffer_device(const struct dirent *dir)
 {
 	return strncmp(FB_DEV_NAME, dir->d_name,
@@ -84,7 +46,6 @@ static int open_fbdev(const char *dev_name) {
 
 	for (i = 0; i < ndev; i++) {
 		char fname[64];
-		char name[256];
 
 		snprintf(fname, sizeof(fname),
 			 "%s/%s", DEV_FB, namelist[i]->d_name);

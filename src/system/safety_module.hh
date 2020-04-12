@@ -13,6 +13,22 @@
 #include "care_robot.hh"
 #include "physics.hh"
 
+#include <stdint.h>
+#include <fcntl.h>
+#include <linux/fb.h>
+#include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <time.h>
+#include <poll.h>
+#include <dirent.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <linux/input.h>
+#include <linux/fb.h>
+
+
+
 class SafetyModule {
     public:
         SafetyModule();
@@ -20,17 +36,20 @@ class SafetyModule {
 
         // Methods
         // Run the safety module
-        ErrorCode roll();
+        ErrorCode_t roll();
 
-        ErrorCode retrieve_position();
-        ErrorCode retrieve_velocity();
-        ErrorCode retrieve_acceleration();
-        ErrorCode retrieve_angular_velocity();
-        ErrorCode retrieve_angular_acceleration();
+        // Light the led matrix in the specified color.
+        ErrorCode_t light_led(struct fb_t* fb, LedColor_t color);
+
+        Behavior_t retrieve_position();
+        Behavior_t retrieve_velocity();
+        Behavior_t retrieve_acceleration();
+        Behavior_t retrieve_angular_velocity();
+        Behavior_t retrieve_angular_acceleration();
 
         // Update all sensor values. Calls all retrieve functions of Rose
         // internally.
-        ErrorCode retrieve_all();
+        Behavior_t retrieve_all();
 
         struct Position* position = nullptr;
         struct Velocity* velocity = nullptr;

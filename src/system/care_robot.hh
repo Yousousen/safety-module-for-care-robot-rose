@@ -16,12 +16,12 @@ class GenericCareRobot {
         /* virtual ~GenericCareRobot(); */
 
         // Methods
-        /* virtual ErrorCode retrieve_position(); */
-        /* virtual ErrorCode retrieve_velocity(); */
-        /* virtual ErrorCode retrieve_acceleration(); */
-        /* virtual ErrorCode retrieve_angular_velocity(); */
-        /* virtual ErrorCode retrieve_angular_acceleration(); */
-        /* virtual ErrorCode retrieve_all(); */
+        /* virtual Behavior_t retrieve_position(); */
+        /* virtual Behavior_t retrieve_velocity(); */
+        /* virtual Behavior_t retrieve_acceleration(); */
+        /* virtual Behavior_t retrieve_angular_velocity(); */
+        /* virtual Behavior_t retrieve_angular_acceleration(); */
+        /* virtual Behavior_t retrieve_all(); */
 };
 
 // Components of a care robot.
@@ -41,7 +41,7 @@ class Body {
         double min_lift;
 
         // Methods
-        ErrorCode retrieve_lift();
+        Behavior_t retrieve_lift();
 
         friend std::ostream& operator<< (std::ostream&, const Body&);
 };
@@ -62,7 +62,7 @@ class Neck {
         double min_turn;
 
         // Methods
-        ErrorCode retrieve_turn();
+        Behavior_t retrieve_turn();
 
         friend std::ostream& operator<< (std::ostream&, const Neck&);
 };
@@ -96,8 +96,8 @@ class GripArm {
         bool has_payload;
 
         // Methods
-        ErrorCode retrieve_strength();
-        ErrorCode retrieve_position();
+        Behavior_t retrieve_strength();
+        Behavior_t retrieve_position();
 
         friend std::ostream& operator<< (std::ostream&, const GripArm&);
 };
@@ -112,7 +112,7 @@ class Camera {
         bool object_nearby;
 
         // Methods
-        ErrorCode retrieve_image();
+        Behavior_t retrieve_image();
 
         friend std::ostream& operator<< (std::ostream&, const Camera&);
 };
@@ -124,21 +124,21 @@ class CareRobotRose : public GenericCareRobot {
         ~CareRobotRose();
 
         // Methods
-        ErrorCode onMove();
-        ErrorCode onTurn();
-        ErrorCode onGrab();
+        bool onMove();
+        bool onTurn();
+        bool onGrab();
 
         friend std::ostream& operator<< (std::ostream&, const CareRobotRose&);
 
-        ErrorCode retrieve_position();
-        ErrorCode retrieve_velocity();
-        ErrorCode retrieve_acceleration();
-        ErrorCode retrieve_angular_velocity();
-        ErrorCode retrieve_angular_acceleration();
+        Behavior_t retrieve_position();
+        Behavior_t retrieve_velocity();
+        Behavior_t retrieve_acceleration();
+        Behavior_t retrieve_angular_velocity();
+        Behavior_t retrieve_angular_acceleration();
 
         // Update all sensor values. Calls all retrieve functions of Rose
         // internally.
-        ErrorCode retrieve_all();
+        Behavior_t retrieve_all();
 
         MovementMode movement_mode;
 
