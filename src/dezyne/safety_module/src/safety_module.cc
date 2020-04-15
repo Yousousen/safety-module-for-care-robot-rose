@@ -147,6 +147,9 @@ ErrorCode_t SafetyModule::roll() {
     s.check_bindings();
 
 
+    // Initialise framebuffer
+    s.iProgram.in.start();
+
     // Run indefinitely unless input is equal to "q".
     std::cout << "Started running indefinitely. press q<enter> to quit.\n";
     std::string input;
