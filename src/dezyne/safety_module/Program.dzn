@@ -1,0 +1,100 @@
+extern unsigned_t $unsigned$;
+extern int_t $int$;
+extern framebuffer_t $struct fb_t*$;
+
+interface IProgram {
+	in void start();
+	in void stop();
+	in void reset();
+	in void trigger_red(out framebuffer_t fb);
+	in void trigger_blue(out framebuffer_t fb);
+	out void initialise_framebuffer();
+	out void destruct_framebuffer();
+	out void light_led(framebuffer_t fb, unsigned_t color);
+
+	behaviour {
+		enum State {Initialising, Operating, Destructing};
+		State state = State.Initialising;
+
+		[state.Initialising] {
+			on start: {
+				initialise_framebuffer;
+				state = State.Operating;
+			}
+			on stop: illegal;
+			on reset: illegal;
+			on trigger_red: illegal;
+			on trigger_blue: illegal;
+		}
+		[state.Operating] {
+			on start: illegal;
+			on stop: {
+				destruct_framebuffer;
+				state = State.Destructing;
+			}
+			on reset: illegal;
+			on trigger_red: {
+				light_led;
+			}
+			on trigger_blue: {
+				light_led;
+			}
+		}
+		[state.Destructing] {
+			on start: illegal;
+			on stop: illegal;
+			on reset: {
+				state = State.Initialising;
+			}
+			on trigger_red: illegal;
+			on trigger_blue: illegal;
+		}
+	}
+}
+
+component Program {
+	provides IProgram iProgram;
+
+	behaviour {
+		enum State {Initialising, Operating, Destructing};
+		State state = State.Initialising;
+		unsigned_t color_red = $0x3000$;
+		unsigned_t color_blue = $0x0006$;
+		framebuffer_t fb;
+
+		[state.Initialising] {
+			on iProgram.start(): {
+				iProgram.initialise_framebuffer();
+				state = State.Operating;
+			}
+			on iProgram.stop(): illegal;
+			on iProgram.reset(): illegal;
+			on iProgram.trigger_red(fb): illegal;
+			on iProgram.trigger_blue(fb): illegal;
+		}
+
+		[state.Operating] {
+			on iProgram.start(): illegal;
+			on iProgram.stop(): {
+				iProgram.destruct_framebuffer();
+				state = State.Destructing;
+			}
+			on iProgram.reset(): illegal;
+			on iProgram.trigger_red(fb): {
+				iProgram.light_led(fb, color_red);
+			}
+			on iProgram.trigger_blue(fb): {
+				iProgram.light_led(fb, color_blue);
+			}
+		}
+		[state.Destructing] {
+			on iProgram.start(): illegal;
+			on iProgram.stop(): illegal;
+			on iProgram.reset(): {
+				state = State.Initialising;
+			}
+			on iProgram.trigger_red(fb): illegal;
+			on iProgram.trigger_blue(fb): illegal;
+		}
+	}
+}

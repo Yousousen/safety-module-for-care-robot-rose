@@ -1,0 +1,9 @@
+import Program.dzn;
+component System {
+	provides IProgram iProgram;
+
+	system {
+		Program program;
+		iProgram <=> program.iProgram;
+	}
+}

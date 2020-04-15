@@ -1,0 +1,12 @@
+extern values $long$;
+
+interface a {
+	out void retrieve_acceleration();
+	in void checkAcceleration();
+	
+	behaviour {
+		on checkAcceleration(): {
+			retrieve_acceleration;
+		}
+	}
+}

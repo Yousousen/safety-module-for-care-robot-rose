@@ -1,0 +1,36 @@
+extern values $long$;
+
+interface a {
+	in void retrieve_acceleration(out values v);
+	behaviour {}
+}
+
+interface b {
+	enum Behavior_t {UNSAFE, SAFE};
+	in Behavior_t resolve_values(values v);
+	behaviour {}
+}
+
+interface d {
+	in void trigger();
+	behaviour {}
+}
+
+component c {
+    requires a retriever;
+    requires b resolver;
+    provides d d;
+    behaviour {
+		enum Behavior_t {UNSAFE, SAFE};
+		Behavior_t behavior = Behavior_t.SAFE;
+
+		// trigger is when we want to retrieve the velocity.
+		on d.trigger: {
+			values v;
+			retriever.retrieve_acceleration(v);
+			Behavior_t behavior = resolver.resolve_values(v);
+			// Do something here.
+		}
+
+    }
+}

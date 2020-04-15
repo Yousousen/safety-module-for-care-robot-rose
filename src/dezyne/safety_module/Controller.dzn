@@ -1,12 +1,29 @@
-extern values $long$;
+/* extern Behavior_t $Behavior_t$; */
 
 interface IController {
-	in void osu();
+    in void control();
+	out void retrieve_acceleration();
+    out void light_led();
+
   	behaviour {
-  		on osu: {}
+        enum Behavior_t {UNSAFE, SAFE};
+        Behavior_t behavior = Behavior_t.SAFE;
+
+        // Control all sensors
+        on control: {
+            // retrieve acceleration
+            retrieve_acceleration();
+            if (behavior == Behavior_t.UNSAFE) {
+                light_led($0x0300$);
+            }
+        }
   	}
 }
 
 component Controller {
   provides IController iController;
+
+  behaviour {
+  	
+  }
 }
