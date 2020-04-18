@@ -30,7 +30,7 @@ namespace dzn {
 
 #include <dzn/locator.hh>
 
-#include "LEDControl.hh"
+#include "Controller.hh"
 
 
 
@@ -41,9 +41,9 @@ struct System
   dzn::locator const& dzn_locator;
 
 
-  ::LEDControl ledcontrol;
+  ::Controller controller;
 
-  ::ILEDControl& iLEDControl;
+  ::IController& iController;
 
 
   System(const dzn::locator&);

@@ -19,24 +19,24 @@
 //SYSTEM
 
 System::System(const dzn::locator& dzn_locator)
-: dzn_meta{"","System",0,0,{},{& ledcontrol.dzn_meta},{[this]{iLEDControl.check_bindings();}}}
+: dzn_meta{"","System",0,0,{},{& controller.dzn_meta},{[this]{iController.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
 
-, ledcontrol(dzn_locator)
+, controller(dzn_locator)
 
-, iLEDControl(ledcontrol.iLEDControl)
+, iController(controller.iController)
 
 {
 
 
-  ledcontrol.dzn_meta.parent = &dzn_meta;
-  ledcontrol.dzn_meta.name = "ledcontrol";
+  controller.dzn_meta.parent = &dzn_meta;
+  controller.dzn_meta.name = "controller";
 
 
 
-  dzn::rank(iLEDControl.meta.provides.meta, 0);
+  dzn::rank(iController.meta.provides.meta, 0);
 
 }
 
