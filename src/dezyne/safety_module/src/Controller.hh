@@ -51,8 +51,10 @@ struct IController
     std::function< void()> initialise;
     std::function< void()> destruct;
     std::function< void()> reset;
-    std::function< void(struct fb_t*&)> trigger_red;
-    std::function< void(struct fb_t*&)> trigger_blue;
+    std::function< void(struct fb_t*&)> light_red;
+    std::function< void(struct fb_t*&)> light_blue;
+    std::function< void(struct fb_t*&)> safe_acceleration;
+    std::function< void(struct fb_t*&)> unsafe_acceleration;
   } in;
 
   struct
@@ -70,8 +72,10 @@ struct IController
     if (! in.initialise) throw dzn::binding_error(meta, "in.initialise");
     if (! in.destruct) throw dzn::binding_error(meta, "in.destruct");
     if (! in.reset) throw dzn::binding_error(meta, "in.reset");
-    if (! in.trigger_red) throw dzn::binding_error(meta, "in.trigger_red");
-    if (! in.trigger_blue) throw dzn::binding_error(meta, "in.trigger_blue");
+    if (! in.light_red) throw dzn::binding_error(meta, "in.light_red");
+    if (! in.light_blue) throw dzn::binding_error(meta, "in.light_blue");
+    if (! in.safe_acceleration) throw dzn::binding_error(meta, "in.safe_acceleration");
+    if (! in.unsafe_acceleration) throw dzn::binding_error(meta, "in.unsafe_acceleration");
 
     if (! out.initialise_framebuffer) throw dzn::binding_error(meta, "out.initialise_framebuffer");
     if (! out.destruct_framebuffer) throw dzn::binding_error(meta, "out.destruct_framebuffer");
@@ -141,7 +145,7 @@ struct Controller
   {
     enum type
     {
-      Initialising,Operating,Destructing
+      Initialising,Operating,Destructing,Safe,Unsafe
     };
   };
 
@@ -171,9 +175,13 @@ struct Controller
   void iController_initialise();
   void iController_destruct();
   void iController_reset();
-  void iController_trigger_red(struct fb_t*& fbx);
-  void iController_trigger_blue(struct fb_t*& fbx);
+  void iController_light_red(struct fb_t*& fbx);
+  void iController_light_blue(struct fb_t*& fbx);
+  void iController_safe_acceleration(struct fb_t*& fbx);
+  void iController_unsafe_acceleration(struct fb_t*& fbx);
 
+  void trigger_red (struct fb_t*& fb);
+  void trigger_blue (struct fb_t*& fb);
 };
 
 #endif // CONTROLLER_HH

@@ -53,15 +53,18 @@ class SafetyModule {
         // Light the led matrix in the specified color.
         static void light_led(struct fb_t* fb, unsigned color);
 
-        Behavior_t retrieve_position();
-        Behavior_t retrieve_velocity();
-        Behavior_t retrieve_acceleration();
-        Behavior_t retrieve_angular_velocity();
-        Behavior_t retrieve_angular_acceleration();
+        void retrieve_position();
+        void retrieve_velocity();
+        void retrieve_acceleration();
+        void retrieve_angular_velocity();
+        void retrieve_angular_acceleration();
+
+        // Check methods
+        Behavior_t check_acceleration();
 
         // Update all sensor values. Calls all retrieve functions of Rose
         // internally.
-        Behavior_t retrieve_all();
+        void retrieve_all();
 
         struct Position* position = nullptr;
         struct Velocity* velocity = nullptr;

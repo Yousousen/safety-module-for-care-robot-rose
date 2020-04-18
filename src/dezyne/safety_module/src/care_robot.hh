@@ -41,7 +41,7 @@ class Body {
         double min_lift;
 
         // Methods
-        Behavior_t retrieve_lift();
+        void retrieve_lift();
 
         friend std::ostream& operator<< (std::ostream&, const Body&);
 };
@@ -62,7 +62,7 @@ class Neck {
         double min_turn;
 
         // Methods
-        Behavior_t retrieve_turn();
+        void retrieve_turn();
 
         friend std::ostream& operator<< (std::ostream&, const Neck&);
 };
@@ -96,8 +96,8 @@ class GripArm {
         bool has_payload;
 
         // Methods
-        Behavior_t retrieve_strength();
-        Behavior_t retrieve_position();
+        void retrieve_strength();
+        void retrieve_position();
 
         friend std::ostream& operator<< (std::ostream&, const GripArm&);
 };
@@ -112,7 +112,7 @@ class Camera {
         bool object_nearby;
 
         // Methods
-        Behavior_t retrieve_image();
+        void retrieve_image();
 
         friend std::ostream& operator<< (std::ostream&, const Camera&);
 };
@@ -130,15 +130,15 @@ class CareRobotRose : public GenericCareRobot {
 
         friend std::ostream& operator<< (std::ostream&, const CareRobotRose&);
 
-        Behavior_t retrieve_position();
-        Behavior_t retrieve_velocity();
-        Behavior_t retrieve_acceleration();
-        Behavior_t retrieve_angular_velocity();
-        Behavior_t retrieve_angular_acceleration();
+        void retrieve_position();
+        void retrieve_velocity();
+        void retrieve_acceleration();
+        void retrieve_angular_velocity();
+        void retrieve_angular_acceleration();
 
         // Update all sensor values. Calls all retrieve functions of Rose
         // internally.
-        Behavior_t retrieve_all();
+        void retrieve_all();
 
         MovementMode movement_mode;
 

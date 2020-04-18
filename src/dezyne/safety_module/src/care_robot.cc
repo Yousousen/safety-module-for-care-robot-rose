@@ -58,160 +58,87 @@ CareRobotRose::~CareRobotRose() {
     if (angular_acceleration != nullptr) delete angular_acceleration;
 }
 
-Behavior_t Body::retrieve_lift() {
-    Behavior_t isSafeBehavior = SAFE;
+void Body::retrieve_lift() {
     auto previous_lift = this->current_lift;
     srand((unsigned)time(NULL));
-
-    if ((this->current_lift = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->current_lift = rand() % 100 + 1;
     this->change_lift = this->current_lift - previous_lift;
-    return isSafeBehavior;
 }
 
-Behavior_t Neck::retrieve_turn() {
-    Behavior_t isSafeBehavior = SAFE;
+void Neck::retrieve_turn() {
     auto previous_turn = this->current_turn;
     srand((unsigned)time(NULL));
-
-    if ((this->current_turn = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->current_turn = rand() % 100 + 1;
     this->change_turn = this->current_turn - previous_turn;
-    return isSafeBehavior;
 }
 
-Behavior_t GripArm::retrieve_strength() {
-    Behavior_t isSafeBehavior = SAFE;
+void GripArm::retrieve_strength() {
     auto previous_strength = this->current_strength;
     srand((unsigned)time(NULL));
-
-    if ((this->current_strength = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-    
+    this->current_strength = rand() % 100 + 1;
     this->change_strength = this->current_strength - previous_strength;
-    return isSafeBehavior;
 }
 
-Behavior_t GripArm::retrieve_position() {
-    Behavior_t isSafeBehavior = SAFE;
+void GripArm::retrieve_position() {
     auto previous_position = this->current_position;
     srand((unsigned)time(NULL));
-
-    if ((this->current_position = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->current_position = rand() % 100 + 1;
     this->change_position = this->current_position - previous_position;
     this->has_payload = static_cast<bool>(this->has_payload ^ 1);
-    return isSafeBehavior;
 }
 
-Behavior_t Camera::retrieve_image() {
+void Camera::retrieve_image() {
     this->object_nearby = static_cast<bool>(this->object_nearby ^ 1);
-    return SAFE;
 }
 
-Behavior_t CareRobotRose::retrieve_position() {
-    Behavior_t isSafeBehavior = SAFE;
+void CareRobotRose::retrieve_position() {
     auto previous = this->position->current;
     srand((unsigned)time(NULL));
-
-    if ((this->position->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->position->current = rand() % 100 + 1;
     this->position->change = this->position->current - previous;
-    return isSafeBehavior;
 }
 
-Behavior_t CareRobotRose::retrieve_velocity() {
-    Behavior_t isSafeBehavior = SAFE;
+void CareRobotRose::retrieve_velocity() {
     auto previous = this->velocity->current;
     srand((unsigned)time(NULL));
-
-    if ((this->velocity->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->velocity->current = rand() % 100 + 1;
     this->velocity->change = this->velocity->current - previous;
-    return isSafeBehavior;;
 }
 
-Behavior_t CareRobotRose::retrieve_acceleration() {
-    Behavior_t isSafeBehavior = SAFE;
+void CareRobotRose::retrieve_acceleration() {
     auto previous = this->acceleration->current;
     srand((unsigned)time(NULL));
-
-    if ((this->acceleration->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->acceleration->current = rand() % 100 + 1;
     this->acceleration->change = this->acceleration->current - previous;
-    return isSafeBehavior;
 }
 
-Behavior_t CareRobotRose::retrieve_angular_velocity() {
-    Behavior_t isSafeBehavior = SAFE;
+void CareRobotRose::retrieve_angular_velocity() {
     auto previous = this->angular_velocity->current;
     srand((unsigned)time(NULL));
-
-    if ((this->angular_velocity->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->angular_velocity->current = rand() % 100 + 1;
     this->angular_velocity->change = this->angular_velocity->current - previous;
-    return isSafeBehavior;
 }
 
 
-Behavior_t CareRobotRose::retrieve_angular_acceleration() {
-    Behavior_t isSafeBehavior = SAFE;
+void CareRobotRose::retrieve_angular_acceleration() {
     auto previous = this->angular_acceleration->current;
     srand((unsigned)time(NULL));
-    if ((this->angular_acceleration->current = rand() % 100 + 1)) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->angular_acceleration->current = rand() % 100 + 1;
     this->angular_acceleration->change = this->angular_acceleration->current -
         previous;
-    return isSafeBehavior;
 }
 
-Behavior_t CareRobotRose::retrieve_all() {
-    if (this->body->retrieve_lift() == UNSAFE) return UNSAFE;
-    if (this->neck->retrieve_turn() == UNSAFE) return UNSAFE;
-    if (this->grip_arm->retrieve_strength() == UNSAFE) return UNSAFE;
-    if (this->grip_arm->retrieve_position() == UNSAFE) return UNSAFE;
-    if (this->camera->retrieve_image() == UNSAFE) return UNSAFE;
-    if (this->retrieve_position() == UNSAFE) return UNSAFE;
-    if (this->retrieve_velocity() == UNSAFE) return UNSAFE;
-    if (this->retrieve_acceleration() == UNSAFE) return UNSAFE;
-    if (this->retrieve_angular_velocity() == UNSAFE) return UNSAFE;
-    if (this->retrieve_angular_acceleration() == UNSAFE) return UNSAFE;
-    return SAFE;
+void CareRobotRose::retrieve_all() {
+    this->body->retrieve_lift();
+    this->neck->retrieve_turn();
+    this->grip_arm->retrieve_strength();
+    this->grip_arm->retrieve_position();
+    this->camera->retrieve_image();
+    this->retrieve_position();
+    this->retrieve_velocity();
+    this->retrieve_acceleration();
+    this->retrieve_angular_velocity();
+    this->retrieve_angular_acceleration();
 }
 
 std::ostream& operator<< (std::ostream& os, const Body& body) {

@@ -161,11 +161,19 @@ ErrorCode_t SafetyModule::roll() {
         if (input == "q") {
             break;
         } else if (input == "r") {
-            s.iController.in.trigger_red(fb);
+            s.iController.in.light_red(fb);
         } else if (input == "b") {
-            s.iController.in.trigger_blue(fb);
-            // Purposely here to show illegal exception handler.
+            s.iController.in.light_blue(fb);
+        } else if (input == "a") {
+            switch (this->check_acceleration()) {
+                case SAFE:
+                    s.iController.in.safe_acceleration(fb);
+                    break;
+                case UNSAFE:
+                    s.iController.in.unsafe_acceleration(fb);
+            }
         } else if (input == "i") {
+            // Purposely here to show illegal exception handler.
             s.iController.in.initialise();
         }
     }
@@ -174,87 +182,56 @@ ErrorCode_t SafetyModule::roll() {
 }
 
 
-Behavior_t SafetyModule::retrieve_position() {
-    Behavior_t isSafeBehavior = SAFE;
+void SafetyModule::retrieve_position() {
     auto previous = this->position->current;
     srand((unsigned)time(NULL));
-
-    if ((this->position->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->position->current = rand() % 100 + 1;
     this->position->change = this->position->current - previous;
-    return isSafeBehavior;
 }
 
-Behavior_t SafetyModule::retrieve_velocity() {
-    Behavior_t isSafeBehavior = SAFE;
+void SafetyModule::retrieve_velocity() {
     auto previous = this->velocity->current;
     srand((unsigned)time(NULL));
-
-    if ((this->velocity->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->velocity->current = rand() % 100 + 1;
     this->velocity->change = this->velocity->current - previous;
-    return isSafeBehavior;
 }
 
-Behavior_t SafetyModule::retrieve_acceleration() {
-    Behavior_t isSafeBehavior = SAFE;
+void SafetyModule::retrieve_acceleration() {
     auto previous = this->acceleration->current;
     srand((unsigned)time(NULL));
-
-    if ((this->acceleration->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->acceleration->current = rand() % 100 + 1;
     this->acceleration->change = this->acceleration->current - previous;
-    return isSafeBehavior;
 }
 
-Behavior_t SafetyModule::retrieve_angular_velocity() {
-    Behavior_t isSafeBehavior = SAFE;
+void SafetyModule::retrieve_angular_velocity() {
     auto previous = this->angular_velocity->current;
     srand((unsigned)time(NULL));
-    if ((this->angular_velocity->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
+    this->angular_velocity->current = rand() % 100 + 1;
     this->angular_velocity->change = this->angular_velocity->current - previous;
-    return isSafeBehavior;
 }
 
 
-Behavior_t SafetyModule::retrieve_angular_acceleration() {
-    Behavior_t isSafeBehavior = SAFE;
+void SafetyModule::retrieve_angular_acceleration() {
     auto previous = this->angular_acceleration->current;
     srand((unsigned)time(NULL));
-
-    if ((this->angular_acceleration->current = rand() % 100 + 1) > 50) {
-        isSafeBehavior = UNSAFE;
-    } else {
-        isSafeBehavior = SAFE;
-    }
-
+    this->angular_acceleration->current = rand() % 100 + 1;
     this->angular_acceleration->change = this->angular_acceleration->current -
         previous;
-    return isSafeBehavior;
 }
 
-Behavior_t SafetyModule::retrieve_all() {
-    if (this->retrieve_position() == UNSAFE) return UNSAFE;
-    if (this->retrieve_velocity() == UNSAFE) return UNSAFE;
-    if (this->retrieve_acceleration() == UNSAFE) return UNSAFE;
-    if (this->retrieve_angular_velocity() == UNSAFE) return UNSAFE;
-    if (this->retrieve_angular_acceleration() == UNSAFE) return UNSAFE;
+void SafetyModule::retrieve_all() {
+    this->retrieve_position();
+    this->retrieve_velocity();
+    this->retrieve_acceleration();
+    this->retrieve_angular_velocity();
+    this->retrieve_angular_acceleration();
+}
+
+Behavior_t SafetyModule::check_acceleration() {
+    // Update acceleration
+    this->retrieve_acceleration();
+    if (this->acceleration->current > 50)
+        return UNSAFE;
     return SAFE;
 }
 

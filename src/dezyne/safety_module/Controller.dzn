@@ -3,18 +3,27 @@ import DataTypes.dzn;
 interface IController {
 	in void initialise();
 	in void destruct();
-	in void reset();
-	in void trigger_red(out framebuffer_t fb);
-	in void trigger_blue(out framebuffer_t fb);
 	out void initialise_framebuffer();
 	out void destruct_framebuffer();
+	in void reset();
 	out void light_led(framebuffer_t fb, unsigned_t color);
+	in void light_red(out framebuffer_t fb);
+	in void light_blue(out framebuffer_t fb);
 	
-	in void check_acceleration(out int_t acc);
+	in void safe_acceleration(out framebuffer_t fb);
+	in void unsafe_acceleration(out framebuffer_t fb);
 
 	behaviour {
 		enum State {Initialising, Operating, Destructing};
 		State state = State.Initialising;
+
+		void trigger_red() {
+			light_led;
+		}
+
+		void trigger_blue() {
+			light_led;
+		}
 
 		[state.Initialising] {
 			on initialise: {
@@ -23,8 +32,10 @@ interface IController {
 			}
 			on destruct: illegal;
 			on reset: illegal;
-			on trigger_red: illegal;
-			on trigger_blue: illegal;
+			on safe_acceleration: illegal;
+			on unsafe_acceleration: illegal;
+			on light_red: illegal;
+			on light_blue: illegal;
 		}
 		[state.Operating] {
 			on initialise: illegal;
@@ -33,14 +44,17 @@ interface IController {
 				state = State.Destructing;
 			}
 			on reset: illegal;
-			on trigger_red: {
-				light_led;
+			on light_red: {
+				trigger_red();
 			}
-			on trigger_blue: {
-				light_led;
+			on light_blue: {
+				trigger_blue();
 			}
-			
-			on check_acceleration: {
+			on safe_acceleration: {
+				trigger_blue();
+			}
+			on unsafe_acceleration: {
+				trigger_red();
 			}
 		}
 		[state.Destructing] {
@@ -49,8 +63,10 @@ interface IController {
 			on reset: {
 				state = State.Initialising;
 			}
-			on trigger_red: illegal;
-			on trigger_blue: illegal;
+			on safe_acceleration: illegal;
+			on unsafe_acceleration: illegal;
+			on light_red: illegal;
+			on light_blue: illegal;
 		}
 	}
 }
@@ -64,6 +80,15 @@ component Controller {
 
 		unsigned_t color_red = $0x3000$;
 		unsigned_t color_blue = $0x0006$;
+
+		void trigger_red(out framebuffer_t fb) {
+			iController.light_led(fb, color_red);
+		}
+
+		void trigger_blue(out framebuffer_t fb) {
+			iController.light_led(fb, color_blue);
+		}
+
 		framebuffer_t fb;
 
 		[state.Initialising] {
@@ -73,35 +98,30 @@ component Controller {
 			}
 			on iController.destruct(): illegal;
 			on iController.reset(): illegal;
-			on iController.trigger_red(fb): illegal;
-			on iController.trigger_blue(fb): illegal;
+			on iController.safe_acceleration: illegal;
+			on iController.unsafe_acceleration: illegal;
+			on iController.light_red: illegal;
+			on iController.light_blue: illegal;
 		}
 
 		[state.Operating] {
 			on iController.initialise(): illegal;
-
 			on iController.destruct(): {
 				iController.destruct_framebuffer();
 				state = State.Destructing;
 			}
-
+			on iController.light_red(fb): {
+				trigger_red(fb);
+			}
+			on iController.light_blue(fb): {
+				trigger_blue(fb);
+			}
 			on iController.reset(): illegal;
-
-			on iController.trigger_red(fb): {
-				iController.light_led(fb, color_red);
+			on iController.safe_acceleration(fb): {
+				trigger_blue(fb);
 			}
-
-			on iController.trigger_blue(fb): {
-				iController.light_led(fb, color_blue);
-			}
-			
-			on iController.check_acceleration(acc): {
-				bool result = acc < 5;
-				if (!result) {
-					state = State.Unsafe;
-				} else {
-					state = State.Safe;
-				}
+			on iController.unsafe_acceleration(fb): {
+				trigger_red(fb);
 			}
 		}
 		[state.Destructing] {
@@ -110,8 +130,10 @@ component Controller {
 			on iController.reset(): {
 				state = State.Initialising;
 			}
-			on iController.trigger_red(fb): illegal;
-			on iController.trigger_blue(fb): illegal;
+			on iController.safe_acceleration: illegal;
+			on iController.unsafe_acceleration: illegal;
+			on iController.light_red: illegal;
+			on iController.light_blue: illegal;
 		}
 	}
 }
