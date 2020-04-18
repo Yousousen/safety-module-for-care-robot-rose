@@ -1,85 +1,98 @@
 import DataTypes.dzn;
-import LEDControl.dzn;
 
 interface IController {
 	in void initialise();
-	in void trigger();
 	in void destruct();
 	in void reset();
-//	in void safe_acceleration();
-//	in void unsafe_acceleration();
+	in void trigger_red(out framebuffer_t fb);
+	in void trigger_blue(out framebuffer_t fb);
+	out void initialise_framebuffer();
+	out void destruct_framebuffer();
+	out void light_led(framebuffer_t fb, unsigned_t color);
 
-  	behaviour {
-  		enum State {Initialising, Operating, Destructing};
-  		State state = State.Initialising;
-  		
-  		[state.Initialising] {
-  			on initialise: {
-  				state = State.Operating;
-  			}
-  			on destruct: illegal;
-  			on reset: illegal;
-  			on trigger: illegal;
-  		}
-  		
-  		[state.Operating] {
-  			on initialise: illegal;
-  			on destruct: {
-  				state = State.Destructing;
-  			}
-  			on reset: illegal;
-  			on trigger: {}
-  		}
-  		
-  		[state.Destructing] {
-  			on initialise: illegal;
-  			on destruct: illegal;
-  			on reset: {
-  				state = State.Initialising;
-  			}
-  			on trigger: illegal;
-  		}
-  	}
+	behaviour {
+		enum State {Initialising, Operating, Destructing};
+		State state = State.Initialising;
+
+		[state.Initialising] {
+			on initialise: {
+				initialise_framebuffer;
+				state = State.Operating;
+			}
+			on destruct: illegal;
+			on reset: illegal;
+			on trigger_red: illegal;
+			on trigger_blue: illegal;
+		}
+		[state.Operating] {
+			on initialise: illegal;
+			on destruct: {
+				destruct_framebuffer;
+				state = State.Destructing;
+			}
+			on reset: illegal;
+			on trigger_red: {
+				light_led;
+			}
+			on trigger_blue: {
+				light_led;
+			}
+		}
+		[state.Destructing] {
+			on initialise: illegal;
+			on destruct: illegal;
+			on reset: {
+				state = State.Initialising;
+			}
+			on trigger_red: illegal;
+			on trigger_blue: illegal;
+		}
+	}
 }
 
 component Controller {
-  provides IController iController;
-  requires ILEDControl iLEDControl;
+	provides IController iController;
 
-  behaviour {
-  		framebuffer_t fb;
-  		enum State {Initialising, Operating, Destructing};
-  		State state = State.Initialising;
-  		
-  		[state.Initialising] {
-  			on iController.initialise(): {
-  				iLEDControl.initialise();
-  				state = State.Operating;
-  			}
-  			on iController.destruct(): illegal;
-  			on iController.reset(): illegal;
-  		}
-  		
-  		[state.Operating] {
-  			on iController.initialise(): illegal;
-  			on iController.destruct(): {
-  				iLEDControl.destruct();
-  				state = State.Destructing;
-  			}
-  			on iController.reset(): illegal;
-  			on iController.trigger(): {
-  				iLEDControl.trigger_blue(fb);
-  			}
-  		}
-  		
-  		[state.Destructing] {
-  			on iController.initialise(): illegal;
-  			on iController.destruct(): illegal;
-  			on iController.reset(): {
-  				iLEDControl.reset();
-  				state = State.Initialising;
-  			}
-  		}
+	behaviour {
+		enum State {Initialising, Operating, Destructing};
+		State state = State.Initialising;
+		unsigned_t color_red = $0x3000$;
+		unsigned_t color_blue = $0x0006$;
+		framebuffer_t fb;
+
+		[state.Initialising] {
+			on iController.initialise(): {
+				iController.initialise_framebuffer();
+				state = State.Operating;
+			}
+			on iController.destruct(): illegal;
+			on iController.reset(): illegal;
+			on iController.trigger_red(fb): illegal;
+			on iController.trigger_blue(fb): illegal;
+		}
+
+		[state.Operating] {
+			on iController.initialise(): illegal;
+			on iController.destruct(): {
+				iController.destruct_framebuffer();
+				state = State.Destructing;
+			}
+			on iController.reset(): illegal;
+			on iController.trigger_red(fb): {
+				iController.light_led(fb, color_red);
+			}
+			on iController.trigger_blue(fb): {
+				iController.light_led(fb, color_blue);
+			}
+		}
+		[state.Destructing] {
+			on iController.initialise(): illegal;
+			on iController.destruct(): illegal;
+			on iController.reset(): {
+				state = State.Initialising;
+			}
+			on iController.trigger_red(fb): illegal;
+			on iController.trigger_blue(fb): illegal;
+		}
 	}
-
 }

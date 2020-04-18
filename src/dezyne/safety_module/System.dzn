@@ -1,13 +1,9 @@
 import Controller.dzn;
-import LEDControl.dzn;
 component System {
 	provides IController iController;
-	provides ILEDControl iLEDControl;
 
 	system {
 		Controller controller;
-		LEDControl ledcontrol;
 		iController <=> controller.iController;
-		iLEDControl <=> ledcontrol.iLEDControl;
 	}
 }

@@ -142,16 +142,16 @@ ErrorCode_t SafetyModule::roll() {
     s.dzn_meta.name = "System";
 
     // Bind native functions
-    s.iLEDControl.out.initialise_framebuffer = initialise_framebuffer;
-    s.iLEDControl.out.destruct_framebuffer = destruct_framebuffer;
-    s.iLEDControl.out.light_led = light_led;
+    s.iController.out.initialise_framebuffer = initialise_framebuffer;
+    s.iController.out.destruct_framebuffer = destruct_framebuffer;
+    s.iController.out.light_led = light_led;
 
     // Check bindings
     s.check_bindings();
 
 
     // Initialise framebuffer
-    s.iLEDControl.in.initialise();
+    s.iController.in.initialise();
 
     // Run indefinitely unless input is equal to "q".
     std::cout << "Started running indefinitely. press q<enter> to quit.\n";
@@ -161,16 +161,16 @@ ErrorCode_t SafetyModule::roll() {
         if (input == "q") {
             break;
         } else if (input == "r") {
-            s.iLEDControl.in.trigger_red(fb);
+            s.iController.in.trigger_red(fb);
         } else if (input == "b") {
-            s.iLEDControl.in.trigger_blue(fb);
+            s.iController.in.trigger_blue(fb);
             // Purposely here to show illegal exception handler.
         } else if (input == "i") {
-            s.iLEDControl.in.initialise();
+            s.iController.in.initialise();
         }
     }
     // Destructs framebuffer
-    s.iLEDControl.in.destruct();
+    s.iController.in.destruct();
 }
 
 
