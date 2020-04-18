@@ -1,9 +1,13 @@
-import Program.dzn;
+import Controller.dzn;
+import LEDControl.dzn;
 component System {
-	provides IProgram iProgram;
+	provides IController iController;
+	provides ILEDControl iLEDControl;
 
 	system {
-		Program program;
-		iProgram <=> program.iProgram;
+		Controller controller;
+		LEDControl ledcontrol;
+		iController <=> controller.iController;
+		iLEDControl <=> ledcontrol.iLEDControl;
 	}
 }

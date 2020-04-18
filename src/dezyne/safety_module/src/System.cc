@@ -19,24 +19,24 @@
 //SYSTEM
 
 System::System(const dzn::locator& dzn_locator)
-: dzn_meta{"","System",0,0,{},{& program.dzn_meta},{[this]{iProgram.check_bindings();}}}
+: dzn_meta{"","System",0,0,{},{& ledcontrol.dzn_meta},{[this]{iLEDControl.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
 
-, program(dzn_locator)
+, ledcontrol(dzn_locator)
 
-, iProgram(program.iProgram)
+, iLEDControl(ledcontrol.iLEDControl)
 
 {
 
 
-  program.dzn_meta.parent = &dzn_meta;
-  program.dzn_meta.name = "program";
+  ledcontrol.dzn_meta.parent = &dzn_meta;
+  ledcontrol.dzn_meta.name = "ledcontrol";
 
 
 
-  dzn::rank(iProgram.meta.provides.meta, 0);
+  dzn::rank(iLEDControl.meta.provides.meta, 0);
 
 }
 

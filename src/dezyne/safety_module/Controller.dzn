@@ -1,29 +1,85 @@
-/* extern Behavior_t $Behavior_t$; */
+import DataTypes.dzn;
+import LEDControl.dzn;
 
 interface IController {
-    in void control();
-	out void retrieve_acceleration();
-    out void light_led();
+	in void initialise();
+	in void trigger();
+	in void destruct();
+	in void reset();
+//	in void safe_acceleration();
+//	in void unsafe_acceleration();
 
   	behaviour {
-        enum Behavior_t {UNSAFE, SAFE};
-        Behavior_t behavior = Behavior_t.SAFE;
-
-        // Control all sensors
-        on control: {
-            // retrieve acceleration
-            retrieve_acceleration();
-            if (behavior == Behavior_t.UNSAFE) {
-                light_led($0x0300$);
-            }
-        }
+  		enum State {Initialising, Operating, Destructing};
+  		State state = State.Initialising;
+  		
+  		[state.Initialising] {
+  			on initialise: {
+  				state = State.Operating;
+  			}
+  			on destruct: illegal;
+  			on reset: illegal;
+  			on trigger: illegal;
+  		}
+  		
+  		[state.Operating] {
+  			on initialise: illegal;
+  			on destruct: {
+  				state = State.Destructing;
+  			}
+  			on reset: illegal;
+  			on trigger: {}
+  		}
+  		
+  		[state.Destructing] {
+  			on initialise: illegal;
+  			on destruct: illegal;
+  			on reset: {
+  				state = State.Initialising;
+  			}
+  			on trigger: illegal;
+  		}
   	}
 }
 
 component Controller {
   provides IController iController;
+  requires ILEDControl iLEDControl;
 
   behaviour {
-  	
-  }
+  		framebuffer_t fb;
+  		enum State {Initialising, Operating, Destructing};
+  		State state = State.Initialising;
+  		
+  		[state.Initialising] {
+  			on iController.initialise(): {
+  				iLEDControl.initialise();
+  				state = State.Operating;
+  			}
+  			on iController.destruct(): illegal;
+  			on iController.reset(): illegal;
+  		}
+  		
+  		[state.Operating] {
+  			on iController.initialise(): illegal;
+  			on iController.destruct(): {
+  				iLEDControl.destruct();
+  				state = State.Destructing;
+  			}
+  			on iController.reset(): illegal;
+  			on iController.trigger(): {
+  				iLEDControl.trigger_blue(fb);
+  			}
+  		}
+  		
+  		[state.Destructing] {
+  			on iController.initialise(): illegal;
+  			on iController.destruct(): illegal;
+  			on iController.reset(): {
+  				iLEDControl.reset();
+  				state = State.Initialising;
+  			}
+  		}
+	}
+
 }

@@ -24,15 +24,15 @@ namespace dzn {
 
 
 /********************************** INTERFACE *********************************/
-#ifndef IPROGRAM_HH
-#define IPROGRAM_HH
+#ifndef ILEDCONTROL_HH
+#define ILEDCONTROL_HH
 
 
 
-struct IProgram
+struct ILEDControl
 {
-#ifndef ENUM_IProgram_State
-#define ENUM_IProgram_State 1
+#ifndef ENUM_ILEDControl_State
+#define ENUM_ILEDControl_State 1
 
 
   struct State
@@ -44,12 +44,12 @@ struct IProgram
   };
 
 
-#endif // ENUM_IProgram_State
+#endif // ENUM_ILEDControl_State
 
   struct
   {
-    std::function< void()> start;
-    std::function< void()> stop;
+    std::function< void()> initialise;
+    std::function< void()> destruct;
     std::function< void()> reset;
     std::function< void(struct fb_t*&)> trigger_red;
     std::function< void(struct fb_t*&)> trigger_blue;
@@ -63,12 +63,12 @@ struct IProgram
   } out;
 
   dzn::port::meta meta;
-  inline IProgram(const dzn::port::meta& m) : meta(m) {}
+  inline ILEDControl(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
-    if (! in.start) throw dzn::binding_error(meta, "in.start");
-    if (! in.stop) throw dzn::binding_error(meta, "in.stop");
+    if (! in.initialise) throw dzn::binding_error(meta, "in.initialise");
+    if (! in.destruct) throw dzn::binding_error(meta, "in.destruct");
     if (! in.reset) throw dzn::binding_error(meta, "in.reset");
     if (! in.trigger_red) throw dzn::binding_error(meta, "in.trigger_red");
     if (! in.trigger_blue) throw dzn::binding_error(meta, "in.trigger_blue");
@@ -80,7 +80,7 @@ struct IProgram
   }
 };
 
-inline void connect (IProgram& provided, IProgram& required)
+inline void connect (ILEDControl& provided, ILEDControl& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -89,52 +89,52 @@ inline void connect (IProgram& provided, IProgram& required)
 }
 
 
-#ifndef ENUM_TO_STRING_IProgram_State
-#define ENUM_TO_STRING_IProgram_State 1
-inline std::string to_string(::IProgram::State::type v)
+#ifndef ENUM_TO_STRING_ILEDControl_State
+#define ENUM_TO_STRING_ILEDControl_State 1
+inline std::string to_string(::ILEDControl::State::type v)
 {
   switch(v)
   {
-    case ::IProgram::State::Initialising: return "State_Initialising";
-    case ::IProgram::State::Operating: return "State_Operating";
-    case ::IProgram::State::Destructing: return "State_Destructing";
+    case ::ILEDControl::State::Initialising: return "State_Initialising";
+    case ::ILEDControl::State::Operating: return "State_Operating";
+    case ::ILEDControl::State::Destructing: return "State_Destructing";
 
   }
   return "";
 }
-#endif // ENUM_TO_STRING_IProgram_State
+#endif // ENUM_TO_STRING_ILEDControl_State
 
-#ifndef STRING_TO_ENUM_IProgram_State
-#define STRING_TO_ENUM_IProgram_State 1
-inline ::IProgram::State::type to_IProgram_State(std::string s)
+#ifndef STRING_TO_ENUM_ILEDControl_State
+#define STRING_TO_ENUM_ILEDControl_State 1
+inline ::ILEDControl::State::type to_ILEDControl_State(std::string s)
 {
-  static std::map<std::string, ::IProgram::State::type> m = {
-    {"State_Initialising", ::IProgram::State::Initialising},
-    {"State_Operating", ::IProgram::State::Operating},
-    {"State_Destructing", ::IProgram::State::Destructing},
+  static std::map<std::string, ::ILEDControl::State::type> m = {
+    {"State_Initialising", ::ILEDControl::State::Initialising},
+    {"State_Operating", ::ILEDControl::State::Operating},
+    {"State_Destructing", ::ILEDControl::State::Destructing},
   };
   return m.at(s);
 }
-#endif // STRING_TO_ENUM_IProgram_State
+#endif // STRING_TO_ENUM_ILEDControl_State
 
 
-#endif // IPROGRAM_HH
+#endif // ILEDCONTROL_HH
 
 /********************************** INTERFACE *********************************/
 /********************************** COMPONENT *********************************/
-#ifndef PROGRAM_HH
-#define PROGRAM_HH
+#ifndef LEDCONTROL_HH
+#define LEDCONTROL_HH
 
 
 
 
-struct Program
+struct LEDControl
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
   dzn::locator const& dzn_locator;
-#ifndef ENUM_Program_State
-#define ENUM_Program_State 1
+#ifndef ENUM_LEDControl_State
+#define ENUM_LEDControl_State 1
 
 
   struct State
@@ -146,37 +146,37 @@ struct Program
   };
 
 
-#endif // ENUM_Program_State
+#endif // ENUM_LEDControl_State
 
-  ::Program::State::type state;
+  ::LEDControl::State::type state;
   unsigned color_red;
   unsigned color_blue;
   struct fb_t* fb;
 
 
-  std::function<void ()> out_iProgram;
+  std::function<void ()> out_iLEDControl;
 
-  ::IProgram iProgram;
+  ::ILEDControl iLEDControl;
 
 
 
-  Program(const dzn::locator&);
+  LEDControl(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const Program& m)  {
+  friend std::ostream& operator << (std::ostream& os, const LEDControl& m)  {
     (void)m;
     return os << "[" << m.state <<", " << m.color_red <<", " << m.color_blue <<", " << m.fb <<"]" ;
   }
   private:
-  void iProgram_start();
-  void iProgram_stop();
-  void iProgram_reset();
-  void iProgram_trigger_red(struct fb_t*& fbx);
-  void iProgram_trigger_blue(struct fb_t*& fbx);
+  void iLEDControl_initialise();
+  void iLEDControl_destruct();
+  void iLEDControl_reset();
+  void iLEDControl_trigger_red(struct fb_t*& fbx);
+  void iLEDControl_trigger_blue(struct fb_t*& fbx);
 
 };
 
-#endif // PROGRAM_HH
+#endif // LEDCONTROL_HH
 
 /********************************** COMPONENT *********************************/
 

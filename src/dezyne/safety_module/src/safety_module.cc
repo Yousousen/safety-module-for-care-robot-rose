@@ -1,5 +1,51 @@
 #include "safety_module.hh"
 
+// Global variables and helper functions.
+namespace {
+    Behavior_t b = SAFE;
+    struct fb_t *fb;
+    ErrorCode_t ret = OK;
+    int fbfd = 0;
+
+    // Check if device is framebuffer.
+    static int is_framebuffer_device(const struct dirent *dir)
+    {
+        return strncmp(FB_DEV_NAME, dir->d_name,
+                strlen(FB_DEV_NAME)-1) == 0;
+    }
+
+    // Open framebuffer device.
+    static int open_fbdev(const char *dev_name) {
+        struct dirent **namelist;
+        int i, ndev;
+        int fd = -1;
+        struct fb_fix_screeninfo fix_info;
+
+        ndev = scandir(DEV_FB, &namelist, is_framebuffer_device, versionsort);
+        if (ndev <= 0)
+            return ndev;
+
+        for (i = 0; i < ndev; i++) {
+            char fname[64];
+
+            snprintf(fname, sizeof(fname),
+                    "%s/%s", DEV_FB, namelist[i]->d_name);
+            fd = open(fname, O_RDWR);
+            if (fd < 0)
+                continue;
+            ioctl(fd, FBIOGET_FSCREENINFO, &fix_info);
+            if (strcmp(dev_name, fix_info.id) == 0)
+                break;
+            close(fd);
+            fd = -1;
+        }
+        for (i = 0; i < ndev; i++)
+            free(namelist[i]);
+
+        return fd;
+    }
+}
+
 SafetyModule::SafetyModule() {
     // Create a rose representation
     this->rose = new CareRobotRose();
@@ -51,43 +97,6 @@ SafetyModule::~SafetyModule() {
     if (angular_acceleration != nullptr) delete angular_acceleration;
 }
 
-// Check if device is framebuffer.
-static int is_framebuffer_device(const struct dirent *dir)
-{
-	return strncmp(FB_DEV_NAME, dir->d_name,
-		       strlen(FB_DEV_NAME)-1) == 0;
-}
-
-// Open framebuffer device.
-static int open_fbdev(const char *dev_name) {
-	struct dirent **namelist;
-	int i, ndev;
-	int fd = -1;
-	struct fb_fix_screeninfo fix_info;
-
-	ndev = scandir(DEV_FB, &namelist, is_framebuffer_device, versionsort);
-	if (ndev <= 0)
-		return ndev;
-
-	for (i = 0; i < ndev; i++) {
-		char fname[64];
-
-		snprintf(fname, sizeof(fname),
-			 "%s/%s", DEV_FB, namelist[i]->d_name);
-		fd = open(fname, O_RDWR);
-		if (fd < 0)
-			continue;
-		ioctl(fd, FBIOGET_FSCREENINFO, &fix_info);
-		if (strcmp(dev_name, fix_info.id) == 0)
-			break;
-		close(fd);
-		fd = -1;
-	}
-	for (i = 0; i < ndev; i++)
-		free(namelist[i]);
-
-	return fd;
-}
 
 void SafetyModule::light_led(struct fb_t* fb, unsigned color) {
     for (int i = 0; i < 8; ++i) {
@@ -97,40 +106,34 @@ void SafetyModule::light_led(struct fb_t* fb, unsigned color) {
     }
 }
 
-Behavior_t b = SAFE;
-struct fb_t *fb;
-ErrorCode_t ret = OK;
-int fbfd = 0;
-
 void SafetyModule::initialise_framebuffer() {
 
     // Initialise frame buffer for led matrix.
     std::cout << "Initialising framebuffer...\n";
-	fbfd = open_fbdev("RPi-Sense FB");
-	if (fbfd <= 0) {
-		ret = NOT_OK;
+    fbfd = open_fbdev("RPi-Sense FB");
+    if (fbfd <= 0) {
+        ret = NOT_OK;
         std::cerr << "Error: cannot open framebuffer device.\n";
         return;
-	}
-	fb = (struct fb_t*) mmap(0, 128, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
-	if (!fb) {
-		ret = NOT_OK;
+    }
+    fb = (struct fb_t*) mmap(0, 128, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
+    if (!fb) {
+        ret = NOT_OK;
         std::cerr << "Failed to mmap.\n";
         return;
-	}
-	memset(fb, 0, 128);
+    }
+    memset(fb, 0, 128);
     std::cout << "Framebuffer initialised.\n";
 }
 
 void SafetyModule::destruct_framebuffer() {
-	memset(fb, 0, 128);
-	munmap(fb, 128);
+    memset(fb, 0, 128);
+    munmap(fb, 128);
     close(fbfd);
 }
 
-
 ErrorCode_t SafetyModule::roll() {
-    // Initialise locator and runtime
+    // Initialise dezyne locator and runtime.
     dzn::locator loc;
     dzn::runtime rt;
     loc.set(rt);
@@ -139,16 +142,16 @@ ErrorCode_t SafetyModule::roll() {
     s.dzn_meta.name = "System";
 
     // Bind native functions
-    s.iProgram.out.initialise_framebuffer = initialise_framebuffer;
-    s.iProgram.out.destruct_framebuffer = destruct_framebuffer;
-    s.iProgram.out.light_led = light_led;
+    s.iLEDControl.out.initialise_framebuffer = initialise_framebuffer;
+    s.iLEDControl.out.destruct_framebuffer = destruct_framebuffer;
+    s.iLEDControl.out.light_led = light_led;
 
     // Check bindings
     s.check_bindings();
 
 
     // Initialise framebuffer
-    s.iProgram.in.start();
+    s.iLEDControl.in.initialise();
 
     // Run indefinitely unless input is equal to "q".
     std::cout << "Started running indefinitely. press q<enter> to quit.\n";
@@ -158,13 +161,16 @@ ErrorCode_t SafetyModule::roll() {
         if (input == "q") {
             break;
         } else if (input == "r") {
-            s.iProgram.in.trigger_red(fb);
+            s.iLEDControl.in.trigger_red(fb);
         } else if (input == "b") {
-            s.iProgram.in.trigger_blue(fb);
+            s.iLEDControl.in.trigger_blue(fb);
+            // Purposely here to show illegal exception handler.
+        } else if (input == "i") {
+            s.iLEDControl.in.initialise();
         }
     }
     // Destructs framebuffer
-    s.iProgram.in.stop();
+    s.iLEDControl.in.destruct();
 }
 
 

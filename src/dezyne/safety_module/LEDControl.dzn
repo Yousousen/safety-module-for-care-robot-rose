@@ -1,10 +1,8 @@
-extern unsigned_t $unsigned$;
-extern int_t $int$;
-extern framebuffer_t $struct fb_t*$;
+import DataTypes.dzn;
 
-interface IProgram {
-	in void start();
-	in void stop();
+interface ILEDControl {
+	in void initialise();
+	in void destruct();
 	in void reset();
 	in void trigger_red(out framebuffer_t fb);
 	in void trigger_blue(out framebuffer_t fb);
@@ -17,18 +15,18 @@ interface IProgram {
 		State state = State.Initialising;
 
 		[state.Initialising] {
-			on start: {
+			on initialise: {
 				initialise_framebuffer;
 				state = State.Operating;
 			}
-			on stop: illegal;
+			on destruct: illegal;
 			on reset: illegal;
 			on trigger_red: illegal;
 			on trigger_blue: illegal;
 		}
 		[state.Operating] {
-			on start: illegal;
-			on stop: {
+			on initialise: illegal;
+			on destruct: {
 				destruct_framebuffer;
 				state = State.Destructing;
 			}
@@ -41,8 +39,8 @@ interface IProgram {
 			}
 		}
 		[state.Destructing] {
-			on start: illegal;
-			on stop: illegal;
+			on initialise: illegal;
+			on destruct: illegal;
 			on reset: {
 				state = State.Initialising;
 			}
@@ -52,8 +50,8 @@ interface IProgram {
 	}
 }
 
-component Program {
-	provides IProgram iProgram;
+component LEDControl {
+	provides ILEDControl iLEDControl;
 
 	behaviour {
 		enum State {Initialising, Operating, Destructing};
@@ -61,40 +59,41 @@ component Program {
 		unsigned_t color_red = $0x3000$;
 		unsigned_t color_blue = $0x0006$;
 		framebuffer_t fb;
+		unsigned_t NULL = $0$;
 
 		[state.Initialising] {
-			on iProgram.start(): {
-				iProgram.initialise_framebuffer();
+			on iLEDControl.initialise(): {
+				iLEDControl.initialise_framebuffer();
 				state = State.Operating;
 			}
-			on iProgram.stop(): illegal;
-			on iProgram.reset(): illegal;
-			on iProgram.trigger_red(fb): illegal;
-			on iProgram.trigger_blue(fb): illegal;
+			on iLEDControl.destruct(): illegal;
+			on iLEDControl.reset(): illegal;
+			on iLEDControl.trigger_red(fb): illegal;
+			on iLEDControl.trigger_blue(fb): illegal;
 		}
 
 		[state.Operating] {
-			on iProgram.start(): illegal;
-			on iProgram.stop(): {
-				iProgram.destruct_framebuffer();
+			on iLEDControl.initialise(): illegal;
+			on iLEDControl.destruct(): {
+				iLEDControl.destruct_framebuffer();
 				state = State.Destructing;
 			}
-			on iProgram.reset(): illegal;
-			on iProgram.trigger_red(fb): {
-				iProgram.light_led(fb, color_red);
+			on iLEDControl.reset(): illegal;
+			on iLEDControl.trigger_red(fb): {
+				iLEDControl.light_led(fb, color_red);
 			}
-			on iProgram.trigger_blue(fb): {
-				iProgram.light_led(fb, color_blue);
+			on iLEDControl.trigger_blue(fb): {
+				iLEDControl.light_led(fb, color_blue);
 			}
 		}
 		[state.Destructing] {
-			on iProgram.start(): illegal;
-			on iProgram.stop(): illegal;
-			on iProgram.reset(): {
+			on iLEDControl.initialise(): illegal;
+			on iLEDControl.destruct(): illegal;
+			on iLEDControl.reset(): {
 				state = State.Initialising;
 			}
-			on iProgram.trigger_red(fb): illegal;
-			on iProgram.trigger_blue(fb): illegal;
+			on iLEDControl.trigger_red(fb): illegal;
+			on iLEDControl.trigger_blue(fb): illegal;
 		}
 	}
 }
