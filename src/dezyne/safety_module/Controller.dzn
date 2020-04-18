@@ -9,6 +9,8 @@ interface IController {
 	out void initialise_framebuffer();
 	out void destruct_framebuffer();
 	out void light_led(framebuffer_t fb, unsigned_t color);
+	
+	in void check_acceleration(out int_t acc);
 
 	behaviour {
 		enum State {Initialising, Operating, Destructing};
@@ -37,6 +39,9 @@ interface IController {
 			on trigger_blue: {
 				light_led;
 			}
+			
+			on check_acceleration: {
+			}
 		}
 		[state.Destructing] {
 			on initialise: illegal;
@@ -54,8 +59,9 @@ component Controller {
 	provides IController iController;
 
 	behaviour {
-		enum State {Initialising, Operating, Destructing};
+		enum State {Initialising, Operating, Destructing, Safe, Unsafe};
 		State state = State.Initialising;
+
 		unsigned_t color_red = $0x3000$;
 		unsigned_t color_blue = $0x0006$;
 		framebuffer_t fb;
@@ -73,16 +79,29 @@ component Controller {
 
 		[state.Operating] {
 			on iController.initialise(): illegal;
+
 			on iController.destruct(): {
 				iController.destruct_framebuffer();
 				state = State.Destructing;
 			}
+
 			on iController.reset(): illegal;
+
 			on iController.trigger_red(fb): {
 				iController.light_led(fb, color_red);
 			}
+
 			on iController.trigger_blue(fb): {
 				iController.light_led(fb, color_blue);
+			}
+			
+			on iController.check_acceleration(acc): {
+				bool result = acc < 5;
+				if (!result) {
+					state = State.Unsafe;
+				} else {
+					state = State.Safe;
+				}
 			}
 		}
 		[state.Destructing] {
