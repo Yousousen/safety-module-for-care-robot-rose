@@ -46,6 +46,21 @@ namespace {
     }
 }
 
+namespace Calculus {
+    double trapezoidal_integral(double* f, int nsamples) {
+        // Using trapezoid rule.
+        // integral = h/2 * ( y0 + 2y1 + 2y2 + 2y3 ....... + yn)
+        int sum = 0;
+        sum += f[0];
+        int i;
+        for (i = 1; i < nsamples-1; ++i) {
+            sum += 2*f[i];
+        }
+        sum += f[i];
+        return (double) ((CHANGE_IN_TIME/2) * sum);
+    }
+}
+
 SafetyModule::SafetyModule() {
     // Create a rose representation
     this->rose = new CareRobotRose();
@@ -155,6 +170,7 @@ ErrorCode_t SafetyModule::roll() {
 
     // Run indefinitely unless input is equal to "q".
     std::cout << "Started running indefinitely. press q<enter> to quit.\n";
+    std::cout << "Press a<enter> to check acceleration\n";
     std::string input;
     while (1) {
         std::cin >> input;
@@ -177,7 +193,7 @@ ErrorCode_t SafetyModule::roll() {
             s.iController.in.initialise();
         }
     }
-    // Destructs framebuffer
+    // Destruct framebuffer
     s.iController.in.destruct();
 }
 
@@ -185,28 +201,28 @@ ErrorCode_t SafetyModule::roll() {
 void SafetyModule::retrieve_position() {
     auto previous = this->position->current;
     srand((unsigned)time(NULL));
-    this->position->current = rand() % 100 + 1;
+    this->position->current = rand() % 5 + 1;
     this->position->change = this->position->current - previous;
 }
 
 void SafetyModule::retrieve_velocity() {
     auto previous = this->velocity->current;
     srand((unsigned)time(NULL));
-    this->velocity->current = rand() % 100 + 1;
+    this->velocity->current = rand() % 5 + 1;
     this->velocity->change = this->velocity->current - previous;
 }
 
 void SafetyModule::retrieve_acceleration() {
     auto previous = this->acceleration->current;
     srand((unsigned)time(NULL));
-    this->acceleration->current = rand() % 100 + 1;
+    this->acceleration->current = rand() % 5 + 1;
     this->acceleration->change = this->acceleration->current - previous;
 }
 
 void SafetyModule::retrieve_angular_velocity() {
     auto previous = this->angular_velocity->current;
     srand((unsigned)time(NULL));
-    this->angular_velocity->current = rand() % 100 + 1;
+    this->angular_velocity->current = rand() % 5 + 1;
     this->angular_velocity->change = this->angular_velocity->current - previous;
 }
 
@@ -214,7 +230,7 @@ void SafetyModule::retrieve_angular_velocity() {
 void SafetyModule::retrieve_angular_acceleration() {
     auto previous = this->angular_acceleration->current;
     srand((unsigned)time(NULL));
-    this->angular_acceleration->current = rand() % 100 + 1;
+    this->angular_acceleration->current = rand() % 5 + 1;
     this->angular_acceleration->change = this->angular_acceleration->current -
         previous;
 }
@@ -227,10 +243,41 @@ void SafetyModule::retrieve_all() {
     this->retrieve_angular_acceleration();
 }
 
+void SafetyModule::sample_acceleration(double* f, const int nsamples) {
+    printf("# rectangles: ");
+    int i;
+    for (i = 0; i < nsamples; ++i) {
+        retrieve_acceleration();
+        f[i] = this->acceleration->current;
+        /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
+        std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
+    }
+    printf("%d, ", i);
+}
+
+
 Behavior_t SafetyModule::check_acceleration() {
+    // numbers of seconds to sample.
+    // numbers of samples.
+    const double nseconds = 1.0;
+    const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
+    printf("nsamples: %d\n", nsamples);
+
     // Update acceleration
-    this->retrieve_acceleration();
-    if (this->acceleration->current > 50)
+    double a[nsamples];
+
+    printf("SAMPLING ACCELERATION\n");
+    sample_acceleration(a, nsamples);
+    printf("DONE\n");
+
+    double velocity = Calculus::trapezoidal_integral(a, nsamples);
+    printf("velocity = %f\n", velocity);
+
+    // Calculate kinetic energy
+    const double kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
+    printf("kinetic energy = %f\n", kinetic_energy);
+
+    if (kinetic_energy >= MAX_KINETIC_ENERGY)
         return UNSAFE;
     return SAFE;
 }

@@ -1,12 +1,16 @@
 CXX = g++
 CXXFLAGS = -g -std=c++11 -I$(RUNTIME) -I$(SRC) -lrt
-CPPFLAGS = -I$(SRC) -I$(RUNTIME)
-LDFLAGS = -g -lpthread
+CPPFLAGS = -I$(SRC) -I$(RUNTIME) $(shell xeno-config --skin=$(SKIN) --cflags)
+LDFLAGS = -g -lpthread -lm $(shell xeno-config --skin=$(SKIN) --ldflags)
 RM = rm -rf
 TARGET = sm
+# Dezyne version
 VERSION = 2.9.0
 CURRENT := $(shell dzn query | grep '*' | sed 's,\* ,,')
+# Xenomai skin
+SKIN=native
 
+# All of the following stuff is copied from the dezyne default makefile.
 ifneq ($(VERSION),$(CURRENT))
 $(info current version: $(CURRENT) is not equal to selected version: $(VERSION))
 endif

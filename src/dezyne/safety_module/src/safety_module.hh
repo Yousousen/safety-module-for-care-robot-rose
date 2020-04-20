@@ -10,6 +10,8 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <thread>
+#include <chrono>
 
 // for framebuffer control
 #include <stdint.h>
@@ -58,6 +60,9 @@ class SafetyModule {
         void retrieve_acceleration();
         void retrieve_angular_velocity();
         void retrieve_angular_acceleration();
+
+        // Sample methods
+        void sample_acceleration(double* f, const int nsamples);
 
         // Check methods
         Behavior_t check_acceleration();
