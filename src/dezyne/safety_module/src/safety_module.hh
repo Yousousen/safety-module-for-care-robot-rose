@@ -37,7 +37,12 @@
 #include "physics.hh"
 #include "care_robot.hh"
 
-
+// Xenomai
+#include <signal.h>
+#include <sys/mman.h>
+#include <native/task.h>
+#include <native/timer.h>
+#include <rtdk.h>
 
 
 class SafetyModule {

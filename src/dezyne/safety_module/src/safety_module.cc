@@ -124,21 +124,21 @@ void SafetyModule::light_led(struct fb_t* fb, unsigned color) {
 void SafetyModule::initialise_framebuffer() {
 
     // Initialise frame buffer for led matrix.
-    std::cout << "Initialising framebuffer...\n";
+    rt_printf("Initialising framebuffer...\n");
     fbfd = open_fbdev("RPi-Sense FB");
     if (fbfd <= 0) {
         ret = NOT_OK;
-        std::cerr << "Error: cannot open framebuffer device.\n";
+        rt_printf("Error: cannot open framebuffer device.\n");
         return;
     }
     fb = (struct fb_t*) mmap(0, 128, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
     if (!fb) {
         ret = NOT_OK;
-        std::cerr << "Failed to mmap.\n";
+        rt_printf("Failed to mmap.\n");
         return;
     }
     memset(fb, 0, 128);
-    std::cout << "Framebuffer initialised.\n";
+    rt_printf("Framebuffer initialised.\n");
 }
 
 void SafetyModule::destruct_framebuffer() {
@@ -169,11 +169,13 @@ ErrorCode_t SafetyModule::roll() {
     s.iController.in.initialise();
 
     // Run indefinitely unless input is equal to "q".
-    std::cout << "Started running indefinitely. press q<enter> to quit.\n";
-    std::cout << "Press a<enter> to check acceleration\n";
+    rt_printf("Started running indefinitely. press q<enter> to quit.\n");
+    rt_printf("Press a<enter> to check acceleration\n");
     std::string input;
     while (1) {
-        std::cin >> input;
+        // TODO: note the cin here. Replace later.
+        /* std::cin >> input; */
+        input = "a";
         if (input == "q") {
             break;
         } else if (input == "r") {
@@ -244,7 +246,7 @@ void SafetyModule::retrieve_all() {
 }
 
 void SafetyModule::sample_acceleration(double* f, const int nsamples) {
-    printf("# rectangles: ");
+    rt_printf("# rectangles: ");
     int i;
     for (i = 0; i < nsamples; ++i) {
         retrieve_acceleration();
@@ -252,7 +254,7 @@ void SafetyModule::sample_acceleration(double* f, const int nsamples) {
         /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
         std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
     }
-    printf("%d, ", i);
+    rt_printf("%d, ", i);
 }
 
 
@@ -261,21 +263,21 @@ Behavior_t SafetyModule::check_acceleration() {
     // numbers of samples.
     const double nseconds = 1.0;
     const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
-    printf("nsamples: %d\n", nsamples);
+    rt_printf("nsamples: %d\n", nsamples);
 
     // Update acceleration
     double a[nsamples];
 
-    printf("SAMPLING ACCELERATION\n");
+    rt_printf("SAMPLING ACCELERATION\n");
     sample_acceleration(a, nsamples);
-    printf("DONE\n");
+    rt_printf("DONE\n");
 
     double velocity = Calculus::trapezoidal_integral(a, nsamples);
-    printf("velocity = %f\n", velocity);
+    rt_printf("velocity = %f\n", velocity);
 
     // Calculate kinetic energy
     const double kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
-    printf("kinetic energy = %f\n", kinetic_energy);
+    rt_printf("kinetic energy = %f\n", kinetic_energy);
 
     if (kinetic_energy >= MAX_KINETIC_ENERGY)
         return UNSAFE;
