@@ -1,9 +1,11 @@
 import Controller.dzn;
 component System {
 	provides IController iController;
+	requires ILEDControl iLEDControl;
 
 	system {
 		Controller controller;
 		iController <=> controller.iController;
+		iLEDControl <=> controller.iLEDControl;
 	}
 }

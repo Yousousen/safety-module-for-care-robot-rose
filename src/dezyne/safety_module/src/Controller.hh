@@ -39,7 +39,7 @@ struct IController
   {
     enum type
     {
-      Initialising,Operating,Destructing
+      Idle,Operating
     };
   };
 
@@ -59,9 +59,6 @@ struct IController
 
   struct
   {
-    std::function< void()> initialise_framebuffer;
-    std::function< void()> destruct_framebuffer;
-    std::function< void(struct fb_t*,unsigned)> light_led;
   } out;
 
   dzn::port::meta meta;
@@ -77,9 +74,6 @@ struct IController
     if (! in.safe_acceleration) throw dzn::binding_error(meta, "in.safe_acceleration");
     if (! in.unsafe_acceleration) throw dzn::binding_error(meta, "in.unsafe_acceleration");
 
-    if (! out.initialise_framebuffer) throw dzn::binding_error(meta, "out.initialise_framebuffer");
-    if (! out.destruct_framebuffer) throw dzn::binding_error(meta, "out.destruct_framebuffer");
-    if (! out.light_led) throw dzn::binding_error(meta, "out.light_led");
 
   }
 };
@@ -99,9 +93,8 @@ inline std::string to_string(::IController::State::type v)
 {
   switch(v)
   {
-    case ::IController::State::Initialising: return "State_Initialising";
+    case ::IController::State::Idle: return "State_Idle";
     case ::IController::State::Operating: return "State_Operating";
-    case ::IController::State::Destructing: return "State_Destructing";
 
   }
   return "";
@@ -113,9 +106,8 @@ inline std::string to_string(::IController::State::type v)
 inline ::IController::State::type to_IController_State(std::string s)
 {
   static std::map<std::string, ::IController::State::type> m = {
-    {"State_Initialising", ::IController::State::Initialising},
+    {"State_Idle", ::IController::State::Idle},
     {"State_Operating", ::IController::State::Operating},
-    {"State_Destructing", ::IController::State::Destructing},
   };
   return m.at(s);
 }
@@ -129,6 +121,7 @@ inline ::IController::State::type to_IController_State(std::string s)
 #ifndef CONTROLLER_HH
 #define CONTROLLER_HH
 
+#include "LEDControl.hh"
 
 
 
@@ -145,23 +138,23 @@ struct Controller
   {
     enum type
     {
-      Initialising,Operating,Destructing,Safe,Unsafe
+      Idle,Operating
     };
   };
 
 
 #endif // ENUM_Controller_State
 
-  ::Controller::State::type state;
   unsigned color_red;
   unsigned color_blue;
-  struct fb_t* fb;
+  ::Controller::State::type state;
 
 
   std::function<void ()> out_iController;
 
   ::IController iController;
 
+  ::ILEDControl iLEDControl;
 
 
   Controller(const dzn::locator&);
@@ -169,16 +162,16 @@ struct Controller
   void dump_tree(std::ostream& os) const;
   friend std::ostream& operator << (std::ostream& os, const Controller& m)  {
     (void)m;
-    return os << "[" << m.state <<", " << m.color_red <<", " << m.color_blue <<", " << m.fb <<"]" ;
+    return os << "[" << m.color_red <<", " << m.color_blue <<", " << m.state <<"]" ;
   }
   private:
   void iController_initialise();
   void iController_destruct();
   void iController_reset();
-  void iController_light_red(struct fb_t*& fbx);
-  void iController_light_blue(struct fb_t*& fbx);
-  void iController_safe_acceleration(struct fb_t*& fbx);
-  void iController_unsafe_acceleration(struct fb_t*& fbx);
+  void iController_light_red(struct fb_t*& fb);
+  void iController_light_blue(struct fb_t*& fb);
+  void iController_safe_acceleration(struct fb_t*& fb);
+  void iController_unsafe_acceleration(struct fb_t*& fb);
 
   void trigger_red (struct fb_t*& fb);
   void trigger_blue (struct fb_t*& fb);

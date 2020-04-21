@@ -45,6 +45,7 @@ struct System
 
   ::IController& iController;
 
+  ::ILEDControl& iLEDControl;
 
   System(const dzn::locator&);
   void check_bindings() const;

@@ -19,7 +19,7 @@
 //SYSTEM
 
 System::System(const dzn::locator& dzn_locator)
-: dzn_meta{"","System",0,0,{},{& controller.dzn_meta},{[this]{iController.check_bindings();}}}
+: dzn_meta{"","System",0,0,{& iLEDControl.meta},{& controller.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
@@ -27,7 +27,7 @@ System::System(const dzn::locator& dzn_locator)
 , controller(dzn_locator)
 
 , iController(controller.iController)
-
+, iLEDControl(controller.iLEDControl)
 {
 
 

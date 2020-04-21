@@ -1,0 +1,27 @@
+import DataTypes.dzn;
+
+interface ILEDControl {
+	in void initialise_framebuffer();
+	in void destruct_framebuffer();
+	in void light_led(framebuffer_t fb, unsigned_t color);
+
+	behaviour {
+		enum State {Idle, Operating};
+		State state = State.Idle;
+		
+		[state.Idle] {
+			on initialise_framebuffer: {
+				state = State.Operating;
+			}
+			on destruct_framebuffer: illegal;
+			on light_led: illegal;
+		}
+		[state.Operating] {
+			on initialise_framebuffer: illegal;
+			on light_led: {}
+			on destruct_framebuffer: {
+				state = State.Idle;
+			}
+		}
+	}
+}

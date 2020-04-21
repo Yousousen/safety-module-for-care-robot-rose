@@ -157,9 +157,9 @@ ErrorCode_t SafetyModule::roll() {
     s.dzn_meta.name = "System";
 
     // Bind native functions
-    s.iController.out.initialise_framebuffer = initialise_framebuffer;
-    s.iController.out.destruct_framebuffer = destruct_framebuffer;
-    s.iController.out.light_led = light_led;
+    s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
+    s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
+    s.iLEDControl.in.light_led = light_led;
 
     // Check bindings
     s.check_bindings();
@@ -174,8 +174,8 @@ ErrorCode_t SafetyModule::roll() {
     std::string input;
     while (1) {
         // TODO: note the cin here. Replace later.
-        /* std::cin >> input; */
-        input = "a";
+        std::cin >> input;
+        /* input = "a"; */
         if (input == "q") {
             break;
         } else if (input == "r") {
