@@ -1,0 +1,20 @@
+import DataTypes.dzn;
+
+interface IAngularAccelerationControl {
+	in void check_acceleration();
+	in void safe_acceleration(out framebuffer_t fb);
+	in void unsafe_acceleration(out framebuffer_t fb);
+	in void stop();
+
+	behaviour {
+		enum State {Unsafe, Safe};
+		State state = State.Safe;
+		
+		on safe_acceleration: {
+			state = State.Safe;
+		}
+		on unsafe_acceleration: {
+			state = State.Unsafe;
+		}
+	}
+}

@@ -1,0 +1,44 @@
+import DataTypes.dzn;
+
+interface IAccelerationControl {
+	in SafetyState check_acceleration();
+
+	behaviour {
+		on check_acceleration: { reply(SafetyState.Safe); }
+		on check_acceleration: { reply(SafetyState.Unsafe); }
+	}
+}
+
+interface IAccelerationSensor {
+	in void retrieve_acceleration(out acceleration_t res);
+	
+	behaviour {
+		on retrieve_acceleration: {}
+	}
+}
+
+interface IResolver {
+	in SafetyState resolve_acceleration(acceleration_t res);
+
+	behaviour {
+		on resolve_acceleration: {reply(SafetyState.Safe); }
+		on resolve_acceleration: {reply(SafetyState.Unsafe); }
+	}
+}
+
+component AccelerationControl {
+	provides IAccelerationControl iAccelerationControl;
+	requires IAccelerationSensor iAccelerationSensor;
+	requires injected IResolver iResolver;
+
+	behaviour {
+		on iAccelerationControl.check_acceleration(): {
+			acceleration_t res;
+			SafetyState state = SafetyState.Safe;
+			iAccelerationSensor.retrieve_acceleration(res);
+			state = iResolver.resolve_acceleration(res);
+			// Logic
+			reply(state);
+		}
+	}
+}

@@ -2,10 +2,15 @@ import Controller.dzn;
 component System {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
+	requires IAccelerationSensor iAccelerationSensor;
 
 	system {
 		Controller controller;
+		AccelerationControl accelerationControl;
+
 		iController <=> controller.iController;
 		iLEDControl <=> controller.iLEDControl;
+		accelerationControl.iAccelerationControl <=>
+		controller.iAccelerationControl;
 	}
 }

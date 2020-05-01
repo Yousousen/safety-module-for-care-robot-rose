@@ -61,6 +61,9 @@ namespace Calculus {
     }
 }
 
+namespace xeno {
+}
+
 SafetyModule::SafetyModule() {
     // Create a rose representation
     this->rose = new CareRobotRose();
@@ -149,11 +152,11 @@ void SafetyModule::destruct_framebuffer() {
 
 ErrorCode_t SafetyModule::roll() {
     // Initialise dezyne locator and runtime.
-    dzn::locator loc;
-    dzn::runtime rt;
-    loc.set(rt);
+    dzn::locator locator;
+    dzn::runtime runtime;
+    locator.set(runtime);
 
-    System s(loc);
+    System s(locator);
     s.dzn_meta.name = "System";
 
     // Bind native functions
@@ -173,7 +176,6 @@ ErrorCode_t SafetyModule::roll() {
     rt_printf("Press a<enter> to check acceleration\n");
     std::string input;
     while (1) {
-        // TODO: note the cin here. Replace later.
         std::cin >> input;
         /* input = "a"; */
         if (input == "q") {

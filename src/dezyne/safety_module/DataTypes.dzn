@@ -1,3 +1,6 @@
 extern unsigned_t $unsigned$;
 extern int_t $int$;
 extern framebuffer_t $struct fb_t*$;
+extern acceleration_t $int$;
+
+enum SafetyState {Unsafe, Safe};

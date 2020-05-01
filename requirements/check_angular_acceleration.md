@@ -1,0 +1,50 @@
+# check angular acceleration
+
+**Pre-condition: System is initialised**
+
+### (Controller)
+1. check angular acceleration
+
+### (AngularAccelerationControl)
+2. retrieve angular acceleration
+3. call sense hat driver
+4. calculate angular velocity from angular acceleration
+5. add initial angular velocity to retrieved velocity
+6. calculate rotational energy
+7. a. robot is stationary
+
+   b. robot is moving
+
+`[route a]`
+
+8.  a. rotational energy is lower than max for stationary
+
+    b. rotational energy is higher than max for stationary
+
+`[route b]`
+
+9.  a. rotational energy is lower than max for moving
+
+    b. rotational energy is higher than max for moving
+
+### (LEDControl)
+`[route aa]`
+
+9. light matrix BLUE
+
+`[route ab]`
+
+9. light matrix RED
+
+`[route ba]`
+
+9. light matrix BLUE
+
+`[route bb]`
+
+9. light matrix RED
+
+### (Controller)
+10. wait for next period
+
+**Post-condition: Matrix is lit in appropriate color**

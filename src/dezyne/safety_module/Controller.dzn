@@ -1,5 +1,8 @@
 import DataTypes.dzn;
 import LEDControl.dzn;
+import AccelerationControl.dzn;
+import AngularAccelerationControl.dzn;
+import GripArmControl.dzn;
 
 interface IController {
 	in void initialise();
@@ -8,9 +11,8 @@ interface IController {
 	
 	in void light_red(out framebuffer_t fb);
 	in void light_blue(out framebuffer_t fb);
-
-	in void safe_acceleration(out framebuffer_t fb);
-	in void unsafe_acceleration(out framebuffer_t fb);
+	
+	in void do_checks();
 
 	behaviour {
 
@@ -25,21 +27,17 @@ interface IController {
 			on reset: illegal;
 			on light_red: illegal;
 			on light_blue: illegal;
-			on safe_acceleration: illegal;
-			on unsafe_acceleration: illegal;
+			on do_checks: illegal;
 		}
 		[state.Operating] {
 			on initialise: illegal;
 			on destruct: {
 				state = State.Idle;
 			}
-
 			on reset: illegal;
-
 			on light_red: {}
 			on light_blue: {}
-			on safe_acceleration: {}
-			on unsafe_acceleration: {}
+			on do_checks: {}
 		}
 	}
 }
@@ -47,10 +45,14 @@ interface IController {
 component Controller {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
+	requires IAccelerationControl iAccelerationControl;
+	//requires IAngularAccelerationControl iAngularAccelerationControl;
+	//requires IGripArmControl iGripArmControl;
 
 	behaviour {
 		unsigned_t color_red = $0x3000$;
 		unsigned_t color_blue = $0x0006$;
+		framebuffer_t fb;
 
 		void trigger_red(out framebuffer_t fb) {
 			iLEDControl.light_led(fb, color_red);
@@ -77,17 +79,20 @@ component Controller {
 				iLEDControl.destruct_framebuffer();
 				state = State.Idle;
 			}
+			// light_red / light_blue for testing purposes.
 			on iController.light_red(fb): {
 				trigger_red(fb);
 			}
 			on iController.light_blue(fb): {
 				trigger_blue(fb);
 			}
-			on iController.safe_acceleration(fb): {
-				trigger_blue(fb);
-			}
-			on iController.unsafe_acceleration(fb): {
-				trigger_red(fb);
+			on iController.do_checks(): {
+				SafetyState safetyState = iAccelerationControl.check_acceleration();
+				if (safetyState == SafetyState.Unsafe) {
+					iLEDControl.light_led(fb, color_red);
+				} else {
+					iLEDControl.light_led(fb, color_blue);
+				}
 			}
 		}
 	}

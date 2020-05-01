@@ -1,0 +1,22 @@
+import DataTypes.dzn;
+
+interface IGripArmControl {
+	in void check_folded();
+	in void check_strength();
+	in void arm_folded(out framebuffer_t fb);
+	in void arm_unfolded(out framebuffer_t fb);
+	in void stop();
+
+	behaviour {
+		enum State {Unsafe, Safe};
+		State state = State.Safe;
+		bool folded = false;
+		
+		on arm_folded: {
+			state = State.Safe;
+		}
+		on arm_unfolded: {
+			state = State.Unsafe;
+		}
+	}
+}
