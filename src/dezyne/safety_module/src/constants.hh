@@ -2,6 +2,9 @@
 #define CONSTANTS_HH
 #include <stdint.h>
 
+// real-time operation
+#define REALTIME 0
+
 // Read boundary values from CSV file.
 #define CSV_HAS_POSITION 0
 #define CSV_HAS_VELOCITY 0
@@ -13,7 +16,7 @@
 #define INERTIAL_MASS 100
 
 // Maximum allowed kinetic energy
-#define MAX_KINETIC_ENERGY 500
+#define MAX_KE 500
 
 // For sampling and calculus
 // Δt (ms)

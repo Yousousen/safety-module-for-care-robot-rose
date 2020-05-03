@@ -38,33 +38,17 @@ struct Behavior
 #endif // ENUM_Behavior
 
 /********************************** INTERFACE *********************************/
-#ifndef ILEDCONTROL_HH
-#define ILEDCONTROL_HH
+#ifndef IRESOLVER_HH
+#define IRESOLVER_HH
 
 
 
-struct ILEDControl
+struct IResolver
 {
-#ifndef ENUM_ILEDControl_State
-#define ENUM_ILEDControl_State 1
-
-
-  struct State
-  {
-    enum type
-    {
-      Idle,Operating
-    };
-  };
-
-
-#endif // ENUM_ILEDControl_State
 
   struct
   {
-    std::function< void()> initialise_framebuffer;
-    std::function< void()> destruct_framebuffer;
-    std::function< void(struct fb_t*,unsigned)> light_led;
+    std::function< ::Behavior::type(double*)> resolve_ke_from_acc;
   } in;
 
   struct
@@ -72,19 +56,17 @@ struct ILEDControl
   } out;
 
   dzn::port::meta meta;
-  inline ILEDControl(const dzn::port::meta& m) : meta(m) {}
+  inline IResolver(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
-    if (! in.initialise_framebuffer) throw dzn::binding_error(meta, "in.initialise_framebuffer");
-    if (! in.destruct_framebuffer) throw dzn::binding_error(meta, "in.destruct_framebuffer");
-    if (! in.light_led) throw dzn::binding_error(meta, "in.light_led");
+    if (! in.resolve_ke_from_acc) throw dzn::binding_error(meta, "in.resolve_ke_from_acc");
 
 
   }
 };
 
-inline void connect (ILEDControl& provided, ILEDControl& required)
+inline void connect (IResolver& provided, IResolver& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -106,19 +88,6 @@ inline std::string to_string(::Behavior::type v)
   return "";
 }
 #endif // ENUM_TO_STRING_Behavior
-#ifndef ENUM_TO_STRING_ILEDControl_State
-#define ENUM_TO_STRING_ILEDControl_State 1
-inline std::string to_string(::ILEDControl::State::type v)
-{
-  switch(v)
-  {
-    case ::ILEDControl::State::Idle: return "State_Idle";
-    case ::ILEDControl::State::Operating: return "State_Operating";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_ILEDControl_State
 
 #ifndef STRING_TO_ENUM_Behavior
 #define STRING_TO_ENUM_Behavior 1
@@ -131,20 +100,9 @@ inline ::Behavior::type to_Behavior(std::string s)
   return m.at(s);
 }
 #endif // STRING_TO_ENUM_Behavior
-#ifndef STRING_TO_ENUM_ILEDControl_State
-#define STRING_TO_ENUM_ILEDControl_State 1
-inline ::ILEDControl::State::type to_ILEDControl_State(std::string s)
-{
-  static std::map<std::string, ::ILEDControl::State::type> m = {
-    {"State_Idle", ::ILEDControl::State::Idle},
-    {"State_Operating", ::ILEDControl::State::Operating},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_ILEDControl_State
 
 
-#endif // ILEDCONTROL_HH
+#endif // IRESOLVER_HH
 
 /********************************** INTERFACE *********************************/
 

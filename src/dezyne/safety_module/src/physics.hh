@@ -86,6 +86,33 @@ struct Acceleration {
     }
 };
 
+struct AngularDisplacement {
+    // Constructors
+    AngularDisplacement() : current(0.0), change(0.0), max(0.0), min(0.0) {};
+    AngularDisplacement(double cur, double chg, double max, double min) :
+        current(cur), change(chg), max(max), min(min) {};
+
+    double current;
+    double change;
+    double max;
+    double min;
+
+    friend std::ostream& operator<< (std::ostream& os, const
+            AngularDisplacement& angular_displacement) {
+        os  << "### AngularDisplacement ###:\n"
+            << "current: " << std::setw(25) << std::left  <<
+            angular_displacement.current << "\n"
+            << "change: " << std::setw(25) << std::left   <<
+            angular_displacement.change << "\n"
+            << "max: " << std::setw(25) << std::left      <<
+            angular_displacement.max << "\n"
+            << "min: " << std::setw(25) << std::left      <<
+            angular_displacement.min << "\n"
+            << "\n";
+        return os;
+    }
+};
+
 struct AngularVelocity {
     // Constructors
     AngularVelocity() : current(0.0), change(0.0), max(0.0), min(0.0) {};

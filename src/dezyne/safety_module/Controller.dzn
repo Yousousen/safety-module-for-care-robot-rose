@@ -9,6 +9,7 @@ interface IController {
 	in void destruct();
 	in void reset();
 	
+	// For debugging, only LEDControl is responsible for lighting.
 	in void light_red(out framebuffer_t fb);
 	in void light_blue(out framebuffer_t fb);
 	
@@ -87,8 +88,9 @@ component Controller {
 				trigger_blue(fb);
 			}
 			on iController.do_checks(): {
-				SafetyState safetyState = iAccelerationControl.check_acceleration();
-				if (safetyState == SafetyState.Unsafe) {
+				// check acceleration
+				Behavior safetyState = iAccelerationControl.check_acceleration();
+				if (safetyState == Behavior.Unsafe) {
 					iLEDControl.light_led(fb, color_red);
 				} else {
 					iLEDControl.light_led(fb, color_blue);

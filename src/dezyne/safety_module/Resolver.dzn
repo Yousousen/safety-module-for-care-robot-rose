@@ -1,0 +1,10 @@
+import DataTypes.dzn;
+
+interface IResolver {
+	in Behavior resolve_ke_from_acc(ke_t ke);
+
+	behaviour {
+		on resolve_ke_from_acc: {reply(Behavior.Safe); }
+		on resolve_ke_from_acc: {reply(Behavior.Unsafe); }
+	}
+}

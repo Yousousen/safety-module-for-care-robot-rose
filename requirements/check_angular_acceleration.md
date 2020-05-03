@@ -9,7 +9,7 @@
 2. retrieve angular acceleration
 3. call sense hat driver
 4. calculate angular velocity from angular acceleration
-5. add initial angular velocity to retrieved velocity
+5. add initial angular velocity to retrieved angular velocity
 6. calculate rotational energy
 7. a. robot is stationary
 
@@ -23,24 +23,19 @@
 
 `[route b]`
 
-9.  a. rotational energy is lower than max for moving
+8.  a. rotational energy is lower than max for moving
 
     b. rotational energy is higher than max for moving
 
 ### (LEDControl)
-`[route aa]`
+`[route aa]` and `[route ba]`
+
+Pre-condition: matrix is **not** RED
+
 
 9. light matrix BLUE
 
-`[route ab]`
-
-9. light matrix RED
-
-`[route ba]`
-
-9. light matrix BLUE
-
-`[route bb]`
+`[route ab]` and `[route bb]`
 
 9. light matrix RED
 

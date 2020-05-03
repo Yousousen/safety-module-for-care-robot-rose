@@ -1,28 +1,20 @@
 import DataTypes.dzn;
+import Resolver.dzn;
 
 interface IAccelerationControl {
-	in SafetyState check_acceleration();
+	in Behavior check_acceleration();
 
 	behaviour {
-		on check_acceleration: { reply(SafetyState.Safe); }
-		on check_acceleration: { reply(SafetyState.Unsafe); }
+		on check_acceleration: { reply(Behavior.Safe); }
+		on check_acceleration: { reply(Behavior.Unsafe); }
 	}
 }
 
 interface IAccelerationSensor {
-	in void retrieve_acceleration(out acceleration_t res);
+	in void retrieve_ke_from_acc(out ke_t ke);
 	
 	behaviour {
-		on retrieve_acceleration: {}
-	}
-}
-
-interface IResolver {
-	in SafetyState resolve_acceleration(acceleration_t res);
-
-	behaviour {
-		on resolve_acceleration: {reply(SafetyState.Safe); }
-		on resolve_acceleration: {reply(SafetyState.Unsafe); }
+		on retrieve_ke_from_acc: {}
 	}
 }
 
@@ -33,12 +25,11 @@ component AccelerationControl {
 
 	behaviour {
 		on iAccelerationControl.check_acceleration(): {
-			acceleration_t res;
-			SafetyState state = SafetyState.Safe;
-			iAccelerationSensor.retrieve_acceleration(res);
-			state = iResolver.resolve_acceleration(res);
-			// Logic
-			reply(state);
+			ke_t ke;
+			Behavior safetyState = Behavior.Safe;
+			iAccelerationSensor.retrieve_ke_from_acc(ke);
+			safetyState = iResolver.resolve_ke_from_acc(ke);
+			reply(safetyState);
 		}
 	}
 }

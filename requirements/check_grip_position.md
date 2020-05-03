@@ -1,26 +1,43 @@
 # check grip position
 
-Pre-condition: System is initialised
+**Pre-condition: System is initialised**
 
-###### (Controller)
+### (Controller)
 1. check grip position
 
-###### (GripArmControl)
+### (AccelerationControl)
 2. retrieve grip position
 3. call ROS publisher
-7. compare calculation with max grip position
-8.  a. grip position is lower than max
+4. a. robot is stationary
 
-    b. grip position is higher than max
+   b. robot is moving
 
-###### (LEDControl)
-[route a]
-9a. light matrix BLUE
+`[route a]`
 
-[route b]
-9b. light matrix RED
+Pre-condition: matrix is **not** RED
 
-###### (Controller)
-10. wait for next period
 
-Post-condition: Matrix is lit in appropriate color
+5. light matrix BLUE
+
+`[route b]`
+
+6.  a. arm is folded
+
+    b. arm is **not** folded
+
+### (LEDControl)
+`[route ba]`
+
+Pre-condition: matrix is **not** RED
+
+
+7. light matrix BLUE
+
+`[route bb]`
+
+8. light matrix RED
+
+### (Controller)
+9. wait for next period
+
+**Post-condition: Matrix is lit in appropriate color**

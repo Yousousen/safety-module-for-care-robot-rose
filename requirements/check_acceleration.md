@@ -23,24 +23,19 @@
 
 `[route b]`
 
-9.  a. kinetic energy is lower than max for moving
+8.  a. kinetic energy is lower than max for moving
 
     b. kinetic energy is higher than max for moving
 
 ### (LEDControl)
-`[route aa]`
+`[route aa]` and `[route ba]`
+
+Pre-condition: matrix is **not** RED
+
 
 9. light matrix BLUE
 
-`[route ab]`
-
-9. light matrix RED
-
-`[route ba]`
-
-9. light matrix BLUE
-
-`[route bb]`
+`[route ab]` and `[route bb]`
 
 9. light matrix RED
 

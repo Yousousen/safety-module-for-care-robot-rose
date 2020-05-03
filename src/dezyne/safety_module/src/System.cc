@@ -16,27 +16,58 @@
 #include <dzn/runtime.hh>
 
 
-//SYSTEM
 
-System::System(const dzn::locator& dzn_locator)
-: dzn_meta{"","System",0,0,{& iLEDControl.meta},{& controller.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();}}}
-, dzn_rt(dzn_locator.get<dzn::runtime>())
-, dzn_locator(dzn_locator)
+System::System(const dzn::locator& locator)
+: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta},{& controller.dzn_meta,& accelerationControl.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();}}}
+, dzn_locator(locator.clone().set(dzn_rt).set(dzn_pump))
 
 
 , controller(dzn_locator)
+, accelerationControl(dzn_locator)
 
 , iController(controller.iController)
-, iLEDControl(controller.iLEDControl)
+, iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationControl.iAccelerationSensor)
+, dzn_pump()
 {
+  controller.iController.meta.requires.port = "iController";
+
+  controller.iLEDControl.meta.provides.port = "iLEDControl";
+  accelerationControl.iAccelerationSensor.meta.provides.port = "iAccelerationSensor";
+
+
+  iController.in.initialise = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.initialise();});
+  };
+  iController.in.destruct = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.destruct();});
+  };
+  iController.in.reset = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.reset();});
+  };
+  iController.in.light_red = [&] (struct fb_t*& fb) {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_red(fb);});
+  };
+  iController.in.light_blue = [&] (struct fb_t*& fb) {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_blue(fb);});
+  };
+  iController.in.do_checks = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.do_checks();});
+  };
+
+
+
+  controller.iLEDControl.in.initialise_framebuffer = std::ref(iLEDControl.in.initialise_framebuffer);
+  controller.iLEDControl.in.destruct_framebuffer = std::ref(iLEDControl.in.destruct_framebuffer);
+  controller.iLEDControl.in.light_led = std::ref(iLEDControl.in.light_led);
+  accelerationControl.iAccelerationSensor.in.retrieve_ke_from_acc = std::ref(iAccelerationSensor.in.retrieve_ke_from_acc);
 
 
   controller.dzn_meta.parent = &dzn_meta;
   controller.dzn_meta.name = "controller";
+  accelerationControl.dzn_meta.parent = &dzn_meta;
+  accelerationControl.dzn_meta.name = "accelerationControl";
 
-
-
-  dzn::rank(iController.meta.provides.meta, 0);
+  connect(accelerationControl.iAccelerationControl, controller.iAccelerationControl);
 
 }
 
@@ -48,8 +79,6 @@ void System::dump_tree(std::ostream& os) const
 {
   dzn::dump_tree(os, &dzn_meta);
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 
 

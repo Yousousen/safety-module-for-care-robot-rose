@@ -22,6 +22,20 @@ namespace dzn {
 #include <iostream>
 #include <map>
 
+#ifndef ENUM_Behavior
+#define ENUM_Behavior 1
+
+
+struct Behavior
+{
+  enum type
+  {
+    Unsafe,Safe
+  };
+};
+
+
+#endif // ENUM_Behavior
 
 /********************************** INTERFACE *********************************/
 #ifndef ICONTROLLER_HH
@@ -53,8 +67,7 @@ struct IController
     std::function< void()> reset;
     std::function< void(struct fb_t*&)> light_red;
     std::function< void(struct fb_t*&)> light_blue;
-    std::function< void(struct fb_t*&)> safe_acceleration;
-    std::function< void(struct fb_t*&)> unsafe_acceleration;
+    std::function< void()> do_checks;
   } in;
 
   struct
@@ -71,8 +84,7 @@ struct IController
     if (! in.reset) throw dzn::binding_error(meta, "in.reset");
     if (! in.light_red) throw dzn::binding_error(meta, "in.light_red");
     if (! in.light_blue) throw dzn::binding_error(meta, "in.light_blue");
-    if (! in.safe_acceleration) throw dzn::binding_error(meta, "in.safe_acceleration");
-    if (! in.unsafe_acceleration) throw dzn::binding_error(meta, "in.unsafe_acceleration");
+    if (! in.do_checks) throw dzn::binding_error(meta, "in.do_checks");
 
 
   }
@@ -87,6 +99,19 @@ inline void connect (IController& provided, IController& required)
 }
 
 
+#ifndef ENUM_TO_STRING_Behavior
+#define ENUM_TO_STRING_Behavior 1
+inline std::string to_string(::Behavior::type v)
+{
+  switch(v)
+  {
+    case ::Behavior::Unsafe: return "Behavior_Unsafe";
+    case ::Behavior::Safe: return "Behavior_Safe";
+
+  }
+  return "";
+}
+#endif // ENUM_TO_STRING_Behavior
 #ifndef ENUM_TO_STRING_IController_State
 #define ENUM_TO_STRING_IController_State 1
 inline std::string to_string(::IController::State::type v)
@@ -101,6 +126,17 @@ inline std::string to_string(::IController::State::type v)
 }
 #endif // ENUM_TO_STRING_IController_State
 
+#ifndef STRING_TO_ENUM_Behavior
+#define STRING_TO_ENUM_Behavior 1
+inline ::Behavior::type to_Behavior(std::string s)
+{
+  static std::map<std::string, ::Behavior::type> m = {
+    {"Behavior_Unsafe", ::Behavior::Unsafe},
+    {"Behavior_Safe", ::Behavior::Safe},
+  };
+  return m.at(s);
+}
+#endif // STRING_TO_ENUM_Behavior
 #ifndef STRING_TO_ENUM_IController_State
 #define STRING_TO_ENUM_IController_State 1
 inline ::IController::State::type to_IController_State(std::string s)
@@ -122,6 +158,7 @@ inline ::IController::State::type to_IController_State(std::string s)
 #define CONTROLLER_HH
 
 #include "LEDControl.hh"
+#include "AccelerationControl.hh"
 
 
 
@@ -147,14 +184,17 @@ struct Controller
 
   unsigned color_red;
   unsigned color_blue;
+  struct fb_t* fb;
   ::Controller::State::type state;
 
+  ::Behavior::type reply_Behavior;
 
   std::function<void ()> out_iController;
 
   ::IController iController;
 
   ::ILEDControl iLEDControl;
+  ::IAccelerationControl iAccelerationControl;
 
 
   Controller(const dzn::locator&);
@@ -162,16 +202,15 @@ struct Controller
   void dump_tree(std::ostream& os) const;
   friend std::ostream& operator << (std::ostream& os, const Controller& m)  {
     (void)m;
-    return os << "[" << m.color_red <<", " << m.color_blue <<", " << m.state <<"]" ;
+    return os << "[" << m.color_red <<", " << m.color_blue <<", " << m.fb <<", " << m.state <<"]" ;
   }
   private:
   void iController_initialise();
   void iController_destruct();
   void iController_reset();
-  void iController_light_red(struct fb_t*& fb);
-  void iController_light_blue(struct fb_t*& fb);
-  void iController_safe_acceleration(struct fb_t*& fb);
-  void iController_unsafe_acceleration(struct fb_t*& fb);
+  void iController_light_red(struct fb_t*& fbx);
+  void iController_light_blue(struct fb_t*& fbx);
+  void iController_do_checks();
 
   void trigger_red (struct fb_t*& fb);
   void trigger_blue (struct fb_t*& fb);

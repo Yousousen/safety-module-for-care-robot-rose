@@ -10,32 +10,12 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#include <dzn/meta.hh>
+#include "GripArmControl.hh"
 
-namespace dzn {
-  struct locator;
-  struct runtime;
-}
+#include <dzn/locator.hh>
+#include <dzn/runtime.hh>
 
 
-
-#include <iostream>
-#include <map>
-
-#ifndef ENUM_Behavior
-#define ENUM_Behavior 1
-
-
-struct Behavior
-{
-  enum type
-  {
-    Unsafe,Safe
-  };
-};
-
-
-#endif // ENUM_Behavior
 
 
 
