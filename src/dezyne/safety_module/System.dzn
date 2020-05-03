@@ -3,7 +3,6 @@ component System {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
 	requires IAccelerationSensor iAccelerationSensor;
-	requires IResolver iResolver;
 
 	system {
 		Controller controller;

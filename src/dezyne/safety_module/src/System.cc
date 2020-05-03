@@ -44,11 +44,11 @@ System::System(const dzn::locator& locator)
   iController.in.reset = [&] () {
     return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.reset();});
   };
-  iController.in.light_red = [&] (struct fb_t*& fb) {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_red(fb);});
+  iController.in.light_red = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_red();});
   };
-  iController.in.light_blue = [&] (struct fb_t*& fb) {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_blue(fb);});
+  iController.in.light_blue = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_blue();});
   };
   iController.in.do_checks = [&] () {
     return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.do_checks();});
@@ -58,7 +58,9 @@ System::System(const dzn::locator& locator)
 
   controller.iLEDControl.in.initialise_framebuffer = std::ref(iLEDControl.in.initialise_framebuffer);
   controller.iLEDControl.in.destruct_framebuffer = std::ref(iLEDControl.in.destruct_framebuffer);
-  controller.iLEDControl.in.light_led = std::ref(iLEDControl.in.light_led);
+  controller.iLEDControl.in.light_led_red = std::ref(iLEDControl.in.light_led_red);
+  controller.iLEDControl.in.light_led_blue = std::ref(iLEDControl.in.light_led_blue);
+  controller.iLEDControl.in.reset_led = std::ref(iLEDControl.in.reset_led);
   accelerationControl.iAccelerationSensor.in.retrieve_ke_from_acc = std::ref(iAccelerationSensor.in.retrieve_ke_from_acc);
 
 

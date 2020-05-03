@@ -65,8 +65,8 @@ struct IController
     std::function< void()> initialise;
     std::function< void()> destruct;
     std::function< void()> reset;
-    std::function< void(struct fb_t*&)> light_red;
-    std::function< void(struct fb_t*&)> light_blue;
+    std::function< void()> light_red;
+    std::function< void()> light_blue;
     std::function< void()> do_checks;
   } in;
 
@@ -208,12 +208,10 @@ struct Controller
   void iController_initialise();
   void iController_destruct();
   void iController_reset();
-  void iController_light_red(struct fb_t*& fbx);
-  void iController_light_blue(struct fb_t*& fbx);
+  void iController_light_red();
+  void iController_light_blue();
   void iController_do_checks();
 
-  void trigger_red (struct fb_t*& fb);
-  void trigger_blue (struct fb_t*& fb);
 };
 
 #endif // CONTROLLER_HH

@@ -59,12 +59,28 @@ struct ILEDControl
 
 
 #endif // ENUM_ILEDControl_State
+#ifndef ENUM_ILEDControl_LedState
+#define ENUM_ILEDControl_LedState 1
+
+
+  struct LedState
+  {
+    enum type
+    {
+      Red,Blue,Low
+    };
+  };
+
+
+#endif // ENUM_ILEDControl_LedState
 
   struct
   {
     std::function< void()> initialise_framebuffer;
     std::function< void()> destruct_framebuffer;
-    std::function< void(struct fb_t*,unsigned)> light_led;
+    std::function< void()> light_led_red;
+    std::function< void()> light_led_blue;
+    std::function< void()> reset_led;
   } in;
 
   struct
@@ -78,7 +94,9 @@ struct ILEDControl
   {
     if (! in.initialise_framebuffer) throw dzn::binding_error(meta, "in.initialise_framebuffer");
     if (! in.destruct_framebuffer) throw dzn::binding_error(meta, "in.destruct_framebuffer");
-    if (! in.light_led) throw dzn::binding_error(meta, "in.light_led");
+    if (! in.light_led_red) throw dzn::binding_error(meta, "in.light_led_red");
+    if (! in.light_led_blue) throw dzn::binding_error(meta, "in.light_led_blue");
+    if (! in.reset_led) throw dzn::binding_error(meta, "in.reset_led");
 
 
   }
@@ -119,6 +137,20 @@ inline std::string to_string(::ILEDControl::State::type v)
   return "";
 }
 #endif // ENUM_TO_STRING_ILEDControl_State
+#ifndef ENUM_TO_STRING_ILEDControl_LedState
+#define ENUM_TO_STRING_ILEDControl_LedState 1
+inline std::string to_string(::ILEDControl::LedState::type v)
+{
+  switch(v)
+  {
+    case ::ILEDControl::LedState::Red: return "LedState_Red";
+    case ::ILEDControl::LedState::Blue: return "LedState_Blue";
+    case ::ILEDControl::LedState::Low: return "LedState_Low";
+
+  }
+  return "";
+}
+#endif // ENUM_TO_STRING_ILEDControl_LedState
 
 #ifndef STRING_TO_ENUM_Behavior
 #define STRING_TO_ENUM_Behavior 1
@@ -142,6 +174,18 @@ inline ::ILEDControl::State::type to_ILEDControl_State(std::string s)
   return m.at(s);
 }
 #endif // STRING_TO_ENUM_ILEDControl_State
+#ifndef STRING_TO_ENUM_ILEDControl_LedState
+#define STRING_TO_ENUM_ILEDControl_LedState 1
+inline ::ILEDControl::LedState::type to_ILEDControl_LedState(std::string s)
+{
+  static std::map<std::string, ::ILEDControl::LedState::type> m = {
+    {"LedState_Red", ::ILEDControl::LedState::Red},
+    {"LedState_Blue", ::ILEDControl::LedState::Blue},
+    {"LedState_Low", ::ILEDControl::LedState::Low},
+  };
+  return m.at(s);
+}
+#endif // STRING_TO_ENUM_ILEDControl_LedState
 
 
 #endif // ILEDCONTROL_HH

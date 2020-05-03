@@ -44,10 +44,9 @@ AccelerationControl::AccelerationControl(const dzn::locator& dzn_locator)
 {
 
   {
-    double* ke;
     ::Behavior::type safetyState = ::Behavior::Safe;
-    this->iAccelerationSensor.in.retrieve_ke_from_acc(ke);
-    safetyState = this->iResolver.in.resolve_ke_from_acc(ke);
+    this->iAccelerationSensor.in.retrieve_ke_from_acc();
+    safetyState = this->iResolver.in.resolve_ke_from_acc();
     { this->reply_Behavior = safetyState; }
   }
 

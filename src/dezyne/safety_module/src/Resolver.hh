@@ -48,7 +48,7 @@ struct IResolver
 
   struct
   {
-    std::function< ::Behavior::type(double*)> resolve_ke_from_acc;
+    std::function< ::Behavior::type()> resolve_ke_from_acc;
   } in;
 
   struct

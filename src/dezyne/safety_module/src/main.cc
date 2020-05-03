@@ -47,7 +47,12 @@ int open_fbdev(const char *dev_name);
 void initialise_framebuffer();
 void destruct_framebuffer();
 // Light the led matrix in the specified color.
-void light_led(struct fb_t* fb, unsigned color);
+void light_led(unsigned color);
+// overloads of light_led function
+void light_led_red();
+void light_led_blue();
+// Reset the led matrix to low.
+void reset_led();
 
 /*** data retrieval functions ***/
 void retrieve_position();
@@ -61,8 +66,8 @@ void retrieve_all();
 void sample_acceleration(double* f, const int nsamples);
 
 /*** retrievers and resolvers ***/
-void retrieve_ke_from_acc(double* ke);
-Behavior::type resolve_ke_from_acc(double* ke);
+void retrieve_ke_from_acc();
+Behavior::type resolve_ke_from_acc();
 
 void initialise();
 void destruct();
@@ -106,10 +111,12 @@ ErrorCode_t roll() {
     s.dzn_meta.name = "System";
 
 
-    // Bind native functions
+    /*** Bind native functions ***/
     s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
     s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
-    s.iLEDControl.in.light_led = light_led;
+    s.iLEDControl.in.light_led_red = light_led_red;
+    s.iLEDControl.in.light_led_blue = light_led_blue;
+    s.iLEDControl.in.reset_led = reset_led;
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
 
     // Check bindings
@@ -125,31 +132,36 @@ ErrorCode_t roll() {
 #else
     printf("Started running indefinitely. press q<enter> to quit.\n");
 #endif
-#if REALTIME
-    rt_printf("Press a<enter> to check acceleration\n");
-#else
-    printf("Press a<enter> to check acceleration\n");
-#endif
     std::string input;
     while (1) {
+#if REALTIME
+        rt_printf("Press d<enter> to execute checks\n");
+#else
+        printf("Press d<enter> to execute checks\n");
+#endif
         std::cin >> input;
         /* input = "a"; */
         if (input == "q") {
             break;
         } else if (input == "r") { // for debugging
-            s.iController.in.light_red(fb);
+            s.iController.in.light_red();
         } else if (input == "b") {
-            s.iController.in.light_blue(fb); // for debugging
-
-        } else if (input == "a") {
+            s.iController.in.light_blue(); // for debugging
+        } else if (input == "d") {
             // Used to pass around kinetic energy from retriever to resolver in
             // dezyne.
-            double* ke;
-            s.iAccelerationSensor.in.retrieve_ke_from_acc(ke);
-            s.accelerationControl.iResolver.in.resolve_ke_from_acc(ke);
+            s.iController.in.do_checks();
+        } else if (input == "s") {
+            s.iController.in.reset();
         } else if (input == "i") {
             // Purposely here to show illegal exception handler.
             s.iController.in.initialise();
+        } else {
+#if REALTIME
+            rt_printf("Did not understand input.\n");
+#else
+            printf("Did not understand input.\n");
+#endif
         }
     }
     // Destruct framebuffer
@@ -208,12 +220,24 @@ void destruct() {
     if (angular_acceleration != nullptr) delete angular_acceleration;
 }
 
-void light_led(struct fb_t* fb, unsigned color) {
+void light_led(unsigned color) {
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
             fb->pixel[i][j]= color;
         }
     }
+}
+
+void light_led_red() {
+    light_led(LedColor_t::RED);
+}
+
+void light_led_blue() {
+    light_led(LedColor_t::BLUE);
+}
+
+void reset_led() {
+    memset(fb, 0, 128);
 }
 
 void initialise_framebuffer() {
@@ -364,7 +388,7 @@ void sample_acceleration(double* f, const int nsamples) {
 }
 
 
-void retrieve_ke_from_acc(double* ke) {
+void retrieve_ke_from_acc() {
     // numbers of seconds to sample.
     const double nseconds = 1.0;
     // numbers of samples.
@@ -405,9 +429,10 @@ void retrieve_ke_from_acc(double* ke) {
 #else
     printf("kinetic energy = %f\n", kinetic_energy);
 #endif
-    ke = &kinetic_energy;
 }
 
-Behavior::type resolve_ke_from_acc(double* ke) {
-    return (*ke > MAX_KE) ? Behavior::type::Unsafe : Behavior::type::Safe;
+Behavior::type resolve_ke_from_acc() {
+    Behavior::type behavior = (kinetic_energy > MAX_KE) ? Behavior::type::Unsafe :
+        Behavior::type::Safe;
+    return behavior;
 }

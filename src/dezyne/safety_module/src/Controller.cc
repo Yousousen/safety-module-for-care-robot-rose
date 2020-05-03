@@ -35,8 +35,8 @@ Controller::Controller(const dzn::locator& dzn_locator)
   iController.in.initialise = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_initialise();}, this->iController.meta, "initialise");};
   iController.in.destruct = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_destruct();}, this->iController.meta, "destruct");};
   iController.in.reset = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_reset();}, this->iController.meta, "reset");};
-  iController.in.light_red = [&](struct fb_t*& fb){return dzn::call_in(this,[=, & fb]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_light_red(fb);}, this->iController.meta, "light_red");};
-  iController.in.light_blue = [&](struct fb_t*& fb){return dzn::call_in(this,[=, & fb]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_light_blue(fb);}, this->iController.meta, "light_blue");};
+  iController.in.light_red = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_light_red();}, this->iController.meta, "light_red");};
+  iController.in.light_blue = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_light_blue();}, this->iController.meta, "light_blue");};
   iController.in.do_checks = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iController) = false; return iController_do_checks();}, this->iController.meta, "do_checks");};
 
 
@@ -73,16 +73,9 @@ void Controller::iController_destruct()
 }
 void Controller::iController_reset()
 {
-  dzn_locator.get<dzn::illegal_handler>().illegal();
-
-  return;
-
-}
-void Controller::iController_light_red(struct fb_t*& fbx)
-{
   if (state == ::Controller::State::Operating) 
   {
-    trigger_red(fbx);
+    this->iLEDControl.in.reset_led();
   }
   else if (!(state == ::Controller::State::Operating)) dzn_locator.get<dzn::illegal_handler>().illegal();
   else dzn_locator.get<dzn::illegal_handler>().illegal();
@@ -90,11 +83,23 @@ void Controller::iController_light_red(struct fb_t*& fbx)
   return;
 
 }
-void Controller::iController_light_blue(struct fb_t*& fbx)
+void Controller::iController_light_red()
 {
   if (state == ::Controller::State::Operating) 
   {
-    trigger_blue(fbx);
+    this->iLEDControl.in.light_led_red();
+  }
+  else if (!(state == ::Controller::State::Operating)) dzn_locator.get<dzn::illegal_handler>().illegal();
+  else dzn_locator.get<dzn::illegal_handler>().illegal();
+
+  return;
+
+}
+void Controller::iController_light_blue()
+{
+  if (state == ::Controller::State::Operating) 
+  {
+    this->iLEDControl.in.light_led_blue();
   }
   else if (!(state == ::Controller::State::Operating)) dzn_locator.get<dzn::illegal_handler>().illegal();
   else dzn_locator.get<dzn::illegal_handler>().illegal();
@@ -110,11 +115,11 @@ void Controller::iController_do_checks()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led(fb,color_red);
+        this->iLEDControl.in.light_led_red();
       }
       else 
       {
-        this->iLEDControl.in.light_led(fb,color_blue);
+        this->iLEDControl.in.light_led_blue();
       }
     }
   }
@@ -125,16 +130,6 @@ void Controller::iController_do_checks()
 
 }
 
-void Controller::trigger_red (struct fb_t*& fb) 
-{
-  this->iLEDControl.in.light_led(fb,color_red);
-  return ;
-}
-void Controller::trigger_blue (struct fb_t*& fb) 
-{
-  this->iLEDControl.in.light_led(fb,color_blue);
-  return ;
-}
 
 void Controller::check_bindings() const
 {

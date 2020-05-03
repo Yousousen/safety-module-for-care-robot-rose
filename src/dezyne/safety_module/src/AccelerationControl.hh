@@ -116,7 +116,7 @@ struct IAccelerationSensor
 
   struct
   {
-    std::function< void(double*&)> retrieve_ke_from_acc;
+    std::function< void()> retrieve_ke_from_acc;
   } in;
 
   struct

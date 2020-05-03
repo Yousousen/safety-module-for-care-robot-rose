@@ -1,7 +1,8 @@
 import DataTypes.dzn;
 
 interface IResolver {
-	in Behavior resolve_ke_from_acc(ke_t ke);
+//	in Behavior resolve_ke_from_acc(ke_t ke);
+	in Behavior resolve_ke_from_acc();
 
 	behaviour {
 		on resolve_ke_from_acc: {reply(Behavior.Safe); }
