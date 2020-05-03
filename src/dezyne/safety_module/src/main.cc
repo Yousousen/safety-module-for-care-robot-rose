@@ -143,10 +143,10 @@ ErrorCode_t roll() {
         /* input = "a"; */
         if (input == "q") {
             break;
-        } else if (input == "r") { // for debugging
-            s.iController.in.light_red();
-        } else if (input == "b") {
-            s.iController.in.light_blue(); // for debugging
+        /* } else if (input == "r") { // for debugging */
+            /* s.iController.in.light_red(); */
+        /* } else if (input == "b") { */
+            /* s.iController.in.light_blue(); // for debugging */
         } else if (input == "d") {
             // Used to pass around kinetic energy from retriever to resolver in
             // dezyne.

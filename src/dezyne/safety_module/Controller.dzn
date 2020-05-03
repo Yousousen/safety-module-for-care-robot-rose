@@ -55,6 +55,7 @@ component Controller {
 //		unsigned_t color_red = $0x3000$;
 //		unsigned_t color_blue = $0x0006$;
 //		framebuffer_t fb;
+		bool unsafe_triggered = false;
 
 		enum State {Idle, Operating};
 		State state = State.Idle;
@@ -83,13 +84,15 @@ component Controller {
 				Behavior safetyState = iAccelerationControl.check_acceleration();
 				if (safetyState == Behavior.Unsafe) {
 					iLEDControl.light_led_red();
-				} else {
-					iLEDControl.light_led_blue();
+					unsafe_triggered = true;
+				} else if (!unsafe_triggered) {
+						iLEDControl.light_led_blue();
 				}
 			}
 			// Unsafe behavior is acknowledged, reset state.
 			on iController.reset(): {
 				iLEDControl.reset_led();
+				unsafe_triggered = false;
 			}
 		}
 	}
