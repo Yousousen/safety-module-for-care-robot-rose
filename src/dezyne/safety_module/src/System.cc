@@ -18,16 +18,17 @@
 
 
 System::System(const dzn::locator& locator)
-: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularAccelerationSensor.meta},{& controller.dzn_meta,& accelerationControl.dzn_meta,& angularAccelerationControl.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularAccelerationSensor.check_bindings();}}}
+: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularAccelerationSensor.meta,& iGripArmSensor.meta},{& controller.dzn_meta,& accelerationControl.dzn_meta,& angularAccelerationControl.dzn_meta,& gripArmControl.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularAccelerationSensor.check_bindings();},[this]{iGripArmSensor.check_bindings();}}}
 , dzn_locator(locator.clone().set(dzn_rt).set(dzn_pump))
 
 
 , controller(dzn_locator)
 , accelerationControl(dzn_locator)
 , angularAccelerationControl(dzn_locator)
+, gripArmControl(dzn_locator)
 
 , iController(controller.iController)
-, iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationControl.iAccelerationSensor), iAngularAccelerationSensor(angularAccelerationControl.iAngularAccelerationSensor)
+, iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationControl.iAccelerationSensor), iAngularAccelerationSensor(angularAccelerationControl.iAngularAccelerationSensor), iGripArmSensor(gripArmControl.iGripArmSensor)
 , dzn_pump()
 {
   controller.iController.meta.requires.port = "iController";
@@ -35,6 +36,7 @@ System::System(const dzn::locator& locator)
   controller.iLEDControl.meta.provides.port = "iLEDControl";
   accelerationControl.iAccelerationSensor.meta.provides.port = "iAccelerationSensor";
   angularAccelerationControl.iAngularAccelerationSensor.meta.provides.port = "iAngularAccelerationSensor";
+  gripArmControl.iGripArmSensor.meta.provides.port = "iGripArmSensor";
 
 
   iController.in.initialise = [&] () {
@@ -59,6 +61,7 @@ System::System(const dzn::locator& locator)
   controller.iLEDControl.in.reset_led = std::ref(iLEDControl.in.reset_led);
   accelerationControl.iAccelerationSensor.in.retrieve_ke_from_acc = std::ref(iAccelerationSensor.in.retrieve_ke_from_acc);
   angularAccelerationControl.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = std::ref(iAngularAccelerationSensor.in.retrieve_re_from_ang_acc);
+  gripArmControl.iGripArmSensor.in.retrieve_arm_str = std::ref(iGripArmSensor.in.retrieve_arm_str);
 
 
   controller.dzn_meta.parent = &dzn_meta;
@@ -67,9 +70,12 @@ System::System(const dzn::locator& locator)
   accelerationControl.dzn_meta.name = "accelerationControl";
   angularAccelerationControl.dzn_meta.parent = &dzn_meta;
   angularAccelerationControl.dzn_meta.name = "angularAccelerationControl";
+  gripArmControl.dzn_meta.parent = &dzn_meta;
+  gripArmControl.dzn_meta.name = "gripArmControl";
 
   connect(accelerationControl.iAccelerationControl, controller.iAccelerationControl);
   connect(angularAccelerationControl.iAngularAccelerationControl, controller.iAngularAccelerationControl);
+  connect(gripArmControl.iGripArmControl, controller.iGripArmControl);
 
 }
 

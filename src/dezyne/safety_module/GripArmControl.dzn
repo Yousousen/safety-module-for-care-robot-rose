@@ -1,22 +1,49 @@
 import DataTypes.dzn;
+import Resolver.dzn;
 
 interface IGripArmControl {
-	in void check_folded();
-	in void check_strength();
-	in void arm_folded(out framebuffer_t fb);
-	in void arm_unfolded(out framebuffer_t fb);
-	in void stop();
+	in Behavior check_arm_position();
+	in Behavior check_arm_strength();
 
 	behaviour {
-		enum State {Unsafe, Safe};
-		State state = State.Safe;
-		bool folded = false;
-		
-		on arm_folded: {
-			state = State.Safe;
+
+		on check_arm_strength: { reply(Behavior.Safe); }
+		on check_arm_strength: { reply(Behavior.Unsafe); }
+
+		on check_arm_position: { reply(Behavior.Safe); }
+		on check_arm_position: { reply(Behavior.Unsafe); }
+	}
+}
+
+interface IGripArmSensor {
+	in void retrieve_arm_str();
+	in void retrieve_arm_pos();
+	
+	behaviour {
+		on retrieve_arm_str: {}
+		on retrieve_arm_pos: {}
+	}
+}
+
+component GripArmControl {
+	provides IGripArmControl iGripArmControl;
+	requires IGripArmSensor iGripArmSensor;
+	requires injected IResolver iResolver;
+	behaviour {
+		Behavior strState = Behavior.Safe;
+		Behavior posState = Behavior.Safe;
+
+		on iGripArmControl.check_arm_strength(): {
+			Behavior safetyState = Behavior.Safe;
+			iGripArmSensor.retrieve_arm_str();
+			safetyState = iResolver.resolve_arm_str();
+			reply(safetyState);
 		}
-		on arm_unfolded: {
-			state = State.Unsafe;
+		on iGripArmControl.check_arm_position(): {
+			Behavior safetyState = Behavior.Safe;
+			iGripArmSensor.retrieve_arm_pos();
+			safetyState = iResolver.resolve_arm_pos();
+			reply(safetyState);
 		}
 	}
 }

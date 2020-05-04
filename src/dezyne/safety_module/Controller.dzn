@@ -41,7 +41,7 @@ component Controller {
 	requires ILEDControl iLEDControl;
 	requires IAccelerationControl iAccelerationControl;
 	requires IAngularAccelerationControl iAngularAccelerationControl;
-	//requires IGripArmControl iGripArmControl;
+	requires IGripArmControl iGripArmControl;
 
 	behaviour {
 		bool unsafe_triggered = false;
@@ -73,6 +73,15 @@ component Controller {
 
 				// check angular acceleration
 				safetyState = iAngularAccelerationControl.check_angular_acceleration();
+				if (safetyState == Behavior.Unsafe) {
+					iLEDControl.light_led_red();
+					unsafe_triggered = true;
+				} else if (!unsafe_triggered) {
+						iLEDControl.light_led_blue();
+				}
+				
+				// check grip arm strength
+				safetyState = iGripArmControl.check_arm_strength();
 				if (safetyState == Behavior.Unsafe) {
 					iLEDControl.light_led_red();
 					unsafe_triggered = true;

@@ -49,6 +49,7 @@ struct Behavior
 #include "Controller.hh"
 #include "AccelerationControl.hh"
 #include "AngularAccelerationControl.hh"
+#include "GripArmControl.hh"
 
 
 
@@ -62,12 +63,14 @@ struct System
   ::Controller controller;
   ::AccelerationControl accelerationControl;
   ::AngularAccelerationControl angularAccelerationControl;
+  ::GripArmControl gripArmControl;
 
   ::IController iController;
 
   ::ILEDControl iLEDControl;
   ::IAccelerationSensor iAccelerationSensor;
   ::IAngularAccelerationSensor iAngularAccelerationSensor;
+  ::IGripArmSensor iGripArmSensor;
 
   dzn::pump dzn_pump;
   System(const dzn::locator&);

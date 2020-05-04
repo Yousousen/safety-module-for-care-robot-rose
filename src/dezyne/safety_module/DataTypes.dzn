@@ -2,7 +2,5 @@ extern unsigned_t $unsigned$;
 extern int_t $int$;
 extern double_t  $double$;
 extern framebuffer_t $struct fb_t*$;
-//extern ke_ptr_t $double**$;
-//extern ke_t $double$;
 
 enum Behavior {Unsafe, Safe};

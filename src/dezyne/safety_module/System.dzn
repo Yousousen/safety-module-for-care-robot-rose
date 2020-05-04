@@ -1,15 +1,21 @@
 import Controller.dzn;
+import LEDControl.dzn;
+import AccelerationControl.dzn;
+import AngularAccelerationControl.dzn;
+import GripArmControl.dzn;
 
 component System {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
 	requires IAccelerationSensor iAccelerationSensor;
 	requires IAngularAccelerationSensor iAngularAccelerationSensor;
+	requires IGripArmSensor iGripArmSensor;
 
 	system {
 		Controller controller;
 		AccelerationControl accelerationControl;
 		AngularAccelerationControl angularAccelerationControl;
+		GripArmControl gripArmControl;
 
 		iController <=> controller.iController;
 
@@ -20,5 +26,8 @@ component System {
 
 		angularAccelerationControl.iAngularAccelerationControl <=> controller.iAngularAccelerationControl;
 		iAngularAccelerationSensor <=> angularAccelerationControl.iAngularAccelerationSensor;
+		
+		gripArmControl.iGripArmControl <=> controller.iGripArmControl;
+		iGripArmSensor <=> gripArmControl.iGripArmSensor;
 	}
 }

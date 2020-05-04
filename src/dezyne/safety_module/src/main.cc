@@ -68,12 +68,15 @@ bool arm_has_payload();
 
 /*** sampling functions ***/
 void sample_acceleration(double* f, const int nsamples);
+void sample_angular_acceleration(double* f, const int nsamples);
 
 /*** retrievers and resolvers ***/
 void retrieve_ke_from_acc();
 Behavior::type resolve_ke_from_acc();
 void retrieve_re_from_ang_acc();
 Behavior::type resolve_re_from_ang_acc();
+void retrieve_arm_str();
+Behavior::type resolve_arm_str();
 
 void initialise();
 void destruct();
@@ -88,7 +91,7 @@ struct AngularAcceleration* angular_acceleration = nullptr;
 
 double kinetic_energy;
 double rotational_energy;
-double grip_strength;
+double arm_strength;
 
 CareRobotRose* rose = nullptr;
 
@@ -96,8 +99,6 @@ CareRobotRose* rose = nullptr;
 struct fb_t *fb;
 ErrorCode_t ret = OK;
 int fbfd = 0;
-
-
 
 
 auto main() -> int {
@@ -111,6 +112,7 @@ ErrorCode_t roll() {
     IResolver iResolver({});
     iResolver.in.resolve_ke_from_acc = resolve_ke_from_acc;
     iResolver.in.resolve_re_from_ang_acc = resolve_re_from_ang_acc;
+    iResolver.in.resolve_arm_str = resolve_arm_str;
 
     dzn::locator locator;
     dzn::runtime runtime;
@@ -129,6 +131,7 @@ ErrorCode_t roll() {
     s.iLEDControl.in.reset_led = reset_led;
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
     s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = retrieve_re_from_ang_acc;
+    s.iGripArmSensor.in.retrieve_arm_str = retrieve_arm_str;
 
     // Check bindings
     s.check_bindings();
@@ -516,6 +519,36 @@ Behavior::type resolve_re_from_ang_acc() {
     Behavior::type behavior = (rotational_energy > MAX_RE) ?
         Behavior::type::Unsafe : Behavior::type::Safe;
     return behavior;
+}
+
+void retrieve_arm_str() {
+#if REALTIME
+    rt_printf("RETRIEVING GRIP ARM STRENGTH\n");
+#else
+    printf("RETRIEVING GRIP ARM STRENGTH\n");
+#endif
+    rose->arm->retrieve_strength();
+    arm_strength = rose->arm->current_strength;
+#if REALTIME
+    rt_printf("Grip arm strength: %f\n", arm_strength);
+#else
+    printf("Grip arm strength: %f\n", arm_strength);
+#endif
+#if REALTIME
+    rt_printf("DONE\n");
+#else
+    printf("DONE\n");
+#endif
+}
+
+Behavior::type resolve_arm_str() {
+    Behavior::type btype;
+    if (arm_has_payload()) {
+        btype = ((arm_strength > MAX_STR) ?  Behavior::type::Unsafe : Behavior::type::Safe);
+    } else {
+        btype = ((arm_strength > MAX_STR_PAYLOAD) ?  Behavior::type::Unsafe : Behavior::type::Safe);
+    }
+    return btype;
 }
 
 bool is_moving() {

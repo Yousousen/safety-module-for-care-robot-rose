@@ -3,7 +3,7 @@
 CareRobotRose::CareRobotRose() {
     body = new Body(11.0, 12.0, 13.0, 14.0);
     neck = new Neck(11.0, 12.0, 13.0, 14.0);
-    grip_arm = new GripArm(11.0, 12.0, 13.0, 14.0, 11.0, 12.0, 13.0, 14.0, true);
+    arm = new GripArm(11.0, 12.0, 13.0, 14.0, 11.0, 12.0, 13.0, 14.0, true);
     camera = new Camera(true);
 
     movement_mode = MovementMode::STATIONARY;
@@ -49,7 +49,7 @@ CareRobotRose::CareRobotRose() {
 CareRobotRose::~CareRobotRose() {
     if (body != nullptr)                 delete body;
     if (neck != nullptr)                 delete neck;
-    if (grip_arm != nullptr)             delete grip_arm;
+    if (arm != nullptr)             delete arm;
     if (camera != nullptr)               delete camera;
     if (position != nullptr)             delete position;
     if (velocity != nullptr)             delete velocity;
@@ -132,8 +132,8 @@ void CareRobotRose::retrieve_angular_acceleration() {
 void CareRobotRose::retrieve_all() {
     this->body->retrieve_lift();
     this->neck->retrieve_turn();
-    this->grip_arm->retrieve_strength();
-    this->grip_arm->retrieve_position();
+    this->arm->retrieve_strength();
+    this->arm->retrieve_position();
     this->camera->retrieve_image();
     this->retrieve_position();
     this->retrieve_velocity();
@@ -170,17 +170,17 @@ std::ostream& operator<< (std::ostream& os, const Neck& neck) {
     return os;
 }
 
-std::ostream& operator<< (std::ostream& os, const GripArm& grip_arm) {
+std::ostream& operator<< (std::ostream& os, const GripArm& arm) {
     os  << "### GripArm ###:\n"
-        << "current strength: "  << grip_arm.current_strength << "\n"
-        << "change_strength: "   << grip_arm.change_strength << "\n"
-        << "max_strength: "      << grip_arm.max_strength << "\n"
-        << "min_strength: "      << grip_arm.min_strength << "\n"
-        << "current position: "  << grip_arm.current_position << "\n"
-        << "change_position: "   << grip_arm.change_position << "\n"
-        << "max_position: "      << grip_arm.max_position << "\n"
-        << "min_position: "      << grip_arm.min_position << "\n"
-        << "has_payload: "      << (grip_arm.has_payload ? "true" :
+        << "current strength: "  << arm.current_strength << "\n"
+        << "change_strength: "   << arm.change_strength << "\n"
+        << "max_strength: "      << arm.max_strength << "\n"
+        << "min_strength: "      << arm.min_strength << "\n"
+        << "current position: "  << arm.current_position << "\n"
+        << "change_position: "   << arm.change_position << "\n"
+        << "max_position: "      << arm.max_position << "\n"
+        << "min_position: "      << arm.min_position << "\n"
+        << "has_payload: "      << (arm.has_payload ? "true" :
                 "false") << "\n"
         << "\n";
     return os;
@@ -197,7 +197,7 @@ std::ostream& operator<< (std::ostream& os, const CareRobotRose& care_robot_rose
     os  << "##### Rose #####:\n\n"
         << *care_robot_rose.body
         << *care_robot_rose.neck
-        << *care_robot_rose.grip_arm
+        << *care_robot_rose.arm
         << *care_robot_rose.camera
         << *care_robot_rose.position
         << *care_robot_rose.velocity

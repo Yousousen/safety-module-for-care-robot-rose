@@ -156,6 +156,7 @@ inline ::IController::State::type to_IController_State(std::string s)
 #include "LEDControl.hh"
 #include "AccelerationControl.hh"
 #include "AngularAccelerationControl.hh"
+#include "GripArmControl.hh"
 
 
 
@@ -191,6 +192,7 @@ struct Controller
   ::ILEDControl iLEDControl;
   ::IAccelerationControl iAccelerationControl;
   ::IAngularAccelerationControl iAngularAccelerationControl;
+  ::IGripArmControl iGripArmControl;
 
 
   Controller(const dzn::locator&);

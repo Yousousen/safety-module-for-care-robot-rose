@@ -18,7 +18,7 @@
 
 
 Controller::Controller(const dzn::locator& dzn_locator)
-: dzn_meta{"","Controller",0,0,{& iLEDControl.meta,& iAccelerationControl.meta,& iAngularAccelerationControl.meta},{},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationControl.check_bindings();},[this]{iAngularAccelerationControl.check_bindings();}}}
+: dzn_meta{"","Controller",0,0,{& iLEDControl.meta,& iAccelerationControl.meta,& iAngularAccelerationControl.meta,& iGripArmControl.meta},{},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationControl.check_bindings();},[this]{iAngularAccelerationControl.check_bindings();},[this]{iGripArmControl.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 , unsafe_triggered(false), state(::Controller::State::Idle)
@@ -28,6 +28,7 @@ Controller::Controller(const dzn::locator& dzn_locator)
 , iLEDControl({{"",0,0},{"iLEDControl",this,&dzn_meta}})
 , iAccelerationControl({{"",0,0},{"iAccelerationControl",this,&dzn_meta}})
 , iAngularAccelerationControl({{"",0,0},{"iAngularAccelerationControl",this,&dzn_meta}})
+, iGripArmControl({{"",0,0},{"iGripArmControl",this,&dzn_meta}})
 
 
 {
@@ -102,6 +103,20 @@ void Controller::iController_do_checks()
       }
     }
     safetyState = this->iAngularAccelerationControl.in.check_angular_acceleration();
+    {
+      if (safetyState == ::Behavior::Unsafe) 
+      {
+        this->iLEDControl.in.light_led_red();
+        unsafe_triggered = true;
+      }
+      else {
+        if (!(unsafe_triggered)) 
+        {
+          this->iLEDControl.in.light_led_blue();
+        }
+      }
+    }
+    safetyState = this->iGripArmControl.in.check_arm_strength();
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
