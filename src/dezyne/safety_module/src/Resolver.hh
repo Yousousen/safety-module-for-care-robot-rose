@@ -49,6 +49,7 @@ struct IResolver
   struct
   {
     std::function< ::Behavior::type()> resolve_ke_from_acc;
+    std::function< ::Behavior::type()> resolve_re_from_ang_acc;
   } in;
 
   struct
@@ -61,6 +62,7 @@ struct IResolver
   void check_bindings() const
   {
     if (! in.resolve_ke_from_acc) throw dzn::binding_error(meta, "in.resolve_ke_from_acc");
+    if (! in.resolve_re_from_ang_acc) throw dzn::binding_error(meta, "in.resolve_re_from_ang_acc");
 
 
   }

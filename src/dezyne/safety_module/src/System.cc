@@ -18,21 +18,23 @@
 
 
 System::System(const dzn::locator& locator)
-: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta},{& controller.dzn_meta,& accelerationControl.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();}}}
+: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularAccelerationSensor.meta},{& controller.dzn_meta,& accelerationControl.dzn_meta,& angularAccelerationControl.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularAccelerationSensor.check_bindings();}}}
 , dzn_locator(locator.clone().set(dzn_rt).set(dzn_pump))
 
 
 , controller(dzn_locator)
 , accelerationControl(dzn_locator)
+, angularAccelerationControl(dzn_locator)
 
 , iController(controller.iController)
-, iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationControl.iAccelerationSensor)
+, iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationControl.iAccelerationSensor), iAngularAccelerationSensor(angularAccelerationControl.iAngularAccelerationSensor)
 , dzn_pump()
 {
   controller.iController.meta.requires.port = "iController";
 
   controller.iLEDControl.meta.provides.port = "iLEDControl";
   accelerationControl.iAccelerationSensor.meta.provides.port = "iAccelerationSensor";
+  angularAccelerationControl.iAngularAccelerationSensor.meta.provides.port = "iAngularAccelerationSensor";
 
 
   iController.in.initialise = [&] () {
@@ -43,12 +45,6 @@ System::System(const dzn::locator& locator)
   };
   iController.in.reset = [&] () {
     return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.reset();});
-  };
-  iController.in.light_red = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_red();});
-  };
-  iController.in.light_blue = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.light_blue();});
   };
   iController.in.do_checks = [&] () {
     return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.do_checks();});
@@ -62,14 +58,18 @@ System::System(const dzn::locator& locator)
   controller.iLEDControl.in.light_led_blue = std::ref(iLEDControl.in.light_led_blue);
   controller.iLEDControl.in.reset_led = std::ref(iLEDControl.in.reset_led);
   accelerationControl.iAccelerationSensor.in.retrieve_ke_from_acc = std::ref(iAccelerationSensor.in.retrieve_ke_from_acc);
+  angularAccelerationControl.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = std::ref(iAngularAccelerationSensor.in.retrieve_re_from_ang_acc);
 
 
   controller.dzn_meta.parent = &dzn_meta;
   controller.dzn_meta.name = "controller";
   accelerationControl.dzn_meta.parent = &dzn_meta;
   accelerationControl.dzn_meta.name = "accelerationControl";
+  angularAccelerationControl.dzn_meta.parent = &dzn_meta;
+  angularAccelerationControl.dzn_meta.name = "angularAccelerationControl";
 
   connect(accelerationControl.iAccelerationControl, controller.iAccelerationControl);
+  connect(angularAccelerationControl.iAngularAccelerationControl, controller.iAngularAccelerationControl);
 
 }
 

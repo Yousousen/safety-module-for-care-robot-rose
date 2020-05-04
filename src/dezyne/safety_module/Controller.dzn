@@ -9,16 +9,12 @@ interface IController {
 	in void destruct();
 	in void reset();
 	
-	// For debugging, only LEDControl is responsible for lighting.
-//	in void light_red();
-//	in void light_blue();
-	
 	in void do_checks();
 
 	behaviour {
-
 		enum State {Idle, Operating};
 		State state = State.Idle;
+		bool unsafe_triggered = false;
 
 		[state.Idle] {
 			on initialise: {
@@ -26,8 +22,6 @@ interface IController {
 			}
 			on destruct: illegal;
 			on reset: illegal;
-//			on light_red: illegal;
-//			on light_blue: illegal;
 			on do_checks: illegal;
 		}
 		[state.Operating] {
@@ -35,11 +29,9 @@ interface IController {
 			on destruct: {
 				state = State.Idle;
 			}
-			on reset: {}
-			// light events here for debugging
-//			on light_red: {}
-//			on light_blue: {}
-			on do_checks: {}
+			on reset: { unsafe_triggered = false; }
+			// TODO: How can I make a choice between true and false here?
+			on do_checks: { unsafe_triggered = true; }
 		}
 	}
 }
@@ -48,13 +40,10 @@ component Controller {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
 	requires IAccelerationControl iAccelerationControl;
-	//requires IAngularAccelerationControl iAngularAccelerationControl;
+	requires IAngularAccelerationControl iAngularAccelerationControl;
 	//requires IGripArmControl iGripArmControl;
 
 	behaviour {
-//		unsigned_t color_red = $0x3000$;
-//		unsigned_t color_blue = $0x0006$;
-//		framebuffer_t fb;
 		bool unsafe_triggered = false;
 
 		enum State {Idle, Operating};
@@ -72,16 +61,18 @@ component Controller {
 				iLEDControl.destruct_framebuffer();
 				state = State.Idle;
 			}
-			// light_red / light_blue for testing purposes.
-//			on iController.light_red(): {
-//				iLEDControl.light_led_red();
-//			}
-//			on iController.light_blue(): {
-//				iLEDControl.light_led_blue();
-//			}
 			on iController.do_checks(): {
 				// check acceleration
 				Behavior safetyState = iAccelerationControl.check_acceleration();
+				if (safetyState == Behavior.Unsafe) {
+					iLEDControl.light_led_red();
+					unsafe_triggered = true;
+				} else if (!unsafe_triggered) {
+						iLEDControl.light_led_blue();
+				}
+
+				// check angular acceleration
+				safetyState = iAngularAccelerationControl.check_angular_acceleration();
 				if (safetyState == Behavior.Unsafe) {
 					iLEDControl.light_led_red();
 					unsafe_triggered = true;

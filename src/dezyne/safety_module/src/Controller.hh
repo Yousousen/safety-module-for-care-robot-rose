@@ -65,8 +65,6 @@ struct IController
     std::function< void()> initialise;
     std::function< void()> destruct;
     std::function< void()> reset;
-    std::function< void()> light_red;
-    std::function< void()> light_blue;
     std::function< void()> do_checks;
   } in;
 
@@ -82,8 +80,6 @@ struct IController
     if (! in.initialise) throw dzn::binding_error(meta, "in.initialise");
     if (! in.destruct) throw dzn::binding_error(meta, "in.destruct");
     if (! in.reset) throw dzn::binding_error(meta, "in.reset");
-    if (! in.light_red) throw dzn::binding_error(meta, "in.light_red");
-    if (! in.light_blue) throw dzn::binding_error(meta, "in.light_blue");
     if (! in.do_checks) throw dzn::binding_error(meta, "in.do_checks");
 
 
@@ -159,6 +155,7 @@ inline ::IController::State::type to_IController_State(std::string s)
 
 #include "LEDControl.hh"
 #include "AccelerationControl.hh"
+#include "AngularAccelerationControl.hh"
 
 
 
@@ -182,9 +179,7 @@ struct Controller
 
 #endif // ENUM_Controller_State
 
-  unsigned color_red;
-  unsigned color_blue;
-  struct fb_t* fb;
+  bool unsafe_triggered;
   ::Controller::State::type state;
 
   ::Behavior::type reply_Behavior;
@@ -195,6 +190,7 @@ struct Controller
 
   ::ILEDControl iLEDControl;
   ::IAccelerationControl iAccelerationControl;
+  ::IAngularAccelerationControl iAngularAccelerationControl;
 
 
   Controller(const dzn::locator&);
@@ -202,14 +198,12 @@ struct Controller
   void dump_tree(std::ostream& os) const;
   friend std::ostream& operator << (std::ostream& os, const Controller& m)  {
     (void)m;
-    return os << "[" << m.color_red <<", " << m.color_blue <<", " << m.fb <<", " << m.state <<"]" ;
+    return os << "[" << m.unsafe_triggered <<", " << m.state <<"]" ;
   }
   private:
   void iController_initialise();
   void iController_destruct();
   void iController_reset();
-  void iController_light_red();
-  void iController_light_blue();
   void iController_do_checks();
 
 };

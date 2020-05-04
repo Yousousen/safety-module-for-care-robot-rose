@@ -1,20 +1,34 @@
 import DataTypes.dzn;
+import Resolver.dzn;
 
 interface IAngularAccelerationControl {
-	in void check_acceleration();
-	in void safe_acceleration(out framebuffer_t fb);
-	in void unsafe_acceleration(out framebuffer_t fb);
-	in void stop();
+	in Behavior check_angular_acceleration();
 
 	behaviour {
-		enum State {Unsafe, Safe};
-		State state = State.Safe;
-		
-		on safe_acceleration: {
-			state = State.Safe;
-		}
-		on unsafe_acceleration: {
-			state = State.Unsafe;
+		on check_angular_acceleration: { reply(Behavior.Safe); }
+		on check_angular_acceleration: { reply(Behavior.Unsafe); }
+	}
+}
+
+interface IAngularAccelerationSensor {
+	in void retrieve_re_from_ang_acc();
+	
+	behaviour {
+		on retrieve_re_from_ang_acc: {}
+	}
+}
+
+component AngularAccelerationControl {
+	provides IAngularAccelerationControl iAngularAccelerationControl;
+	requires IAngularAccelerationSensor iAngularAccelerationSensor;
+	requires injected IResolver iResolver;
+
+	behaviour {
+		on iAngularAccelerationControl.check_angular_acceleration(): {
+			Behavior safetyState = Behavior.Safe;
+			iAngularAccelerationSensor.retrieve_re_from_ang_acc();
+			safetyState = iResolver.resolve_re_from_ang_acc();
+			reply(safetyState);
 		}
 	}
 }

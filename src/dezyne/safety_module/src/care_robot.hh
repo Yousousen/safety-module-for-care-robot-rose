@@ -145,7 +145,7 @@ class CareRobotRose : public GenericCareRobot {
         // Components and properties of care robot rose.
         Body* body = nullptr;
         Neck* neck = nullptr;
-        GripArm* grip_arm = nullptr;
+        GripArm* arm = nullptr;
         Camera* camera = nullptr;
 
         struct Position* position = nullptr;

@@ -17,6 +17,53 @@
 
 
 
+AngularAccelerationControl::AngularAccelerationControl(const dzn::locator& dzn_locator)
+: dzn_meta{"","AngularAccelerationControl",0,0,{& iAngularAccelerationSensor.meta,& iResolver.meta},{},{[this]{iAngularAccelerationControl.check_bindings();},[this]{iAngularAccelerationSensor.check_bindings();},[this]{iResolver.check_bindings();}}}
+, dzn_rt(dzn_locator.get<dzn::runtime>())
+, dzn_locator(dzn_locator)
+
+, iResolver(dzn_locator.get< IResolver>())
+
+, iAngularAccelerationControl({{"iAngularAccelerationControl",this,&dzn_meta},{"",0,0}})
+
+, iAngularAccelerationSensor({{"",0,0},{"iAngularAccelerationSensor",this,&dzn_meta}})
+
+
+{
+  dzn_rt.performs_flush(this) = true;
+
+
+
+  iAngularAccelerationControl.in.check_angular_acceleration = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iAngularAccelerationControl) = false; return iAngularAccelerationControl_check_angular_acceleration();}, this->iAngularAccelerationControl.meta, "check_angular_acceleration");};
+
+
+
+}
+
+::Behavior::type AngularAccelerationControl::iAngularAccelerationControl_check_angular_acceleration()
+{
+
+  {
+    ::Behavior::type safetyState = ::Behavior::Safe;
+    this->iAngularAccelerationSensor.in.retrieve_re_from_ang_acc();
+    safetyState = this->iResolver.in.resolve_re_from_ang_acc();
+    { this->reply_Behavior = safetyState; }
+  }
+
+  return this->reply_Behavior;
+}
+
+
+void AngularAccelerationControl::check_bindings() const
+{
+  dzn::check_bindings(&dzn_meta);
+}
+void AngularAccelerationControl::dump_tree(std::ostream& os) const
+{
+  dzn::dump_tree(os, &dzn_meta);
+}
+
+
 
 
 //version: 2.9.1

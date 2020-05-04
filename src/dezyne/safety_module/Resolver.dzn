@@ -1,11 +1,14 @@
 import DataTypes.dzn;
 
 interface IResolver {
-//	in Behavior resolve_ke_from_acc(ke_t ke);
 	in Behavior resolve_ke_from_acc();
+	in Behavior resolve_re_from_ang_acc();
 
 	behaviour {
 		on resolve_ke_from_acc: {reply(Behavior.Safe); }
 		on resolve_ke_from_acc: {reply(Behavior.Unsafe); }
+
+		on resolve_re_from_ang_acc: {reply(Behavior.Safe); }
+		on resolve_re_from_ang_acc: {reply(Behavior.Unsafe); }
 	}
 }

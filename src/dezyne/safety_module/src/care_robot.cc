@@ -82,7 +82,8 @@ void GripArm::retrieve_strength() {
 void GripArm::retrieve_position() {
     auto previous_position = this->current_position;
     srand((unsigned)time(NULL));
-    this->current_position = rand() % 100 + 1;
+    /* this->current_position = rand() % 100 + 1; */
+    this->current_position = rand() % 2 + 1;
     this->change_position = this->current_position - previous_position;
     this->has_payload = static_cast<bool>(this->has_payload ^ 1);
 }

@@ -16,7 +16,10 @@
 #define INERTIAL_MASS 100
 
 // Maximum allowed kinetic energy
-#define MAX_KE 500
+#define MAX_KE 150
+#define MAX_RE 250
+#define MAX_STR 100
+#define MAX_STR_PAYLOAD 200
 
 // For sampling and calculus
 // Δt (ms)

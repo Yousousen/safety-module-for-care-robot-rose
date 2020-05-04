@@ -62,12 +62,18 @@ void retrieve_angular_velocity();
 void retrieve_angular_acceleration();
 void retrieve_all();
 
+bool is_moving();
+bool arm_is_folded();
+bool arm_has_payload();
+
 /*** sampling functions ***/
 void sample_acceleration(double* f, const int nsamples);
 
 /*** retrievers and resolvers ***/
 void retrieve_ke_from_acc();
 Behavior::type resolve_ke_from_acc();
+void retrieve_re_from_ang_acc();
+Behavior::type resolve_re_from_ang_acc();
 
 void initialise();
 void destruct();
@@ -79,7 +85,10 @@ struct Velocity* velocity = nullptr;
 struct Acceleration* acceleration = nullptr;
 struct AngularVelocity* angular_velocity = nullptr;
 struct AngularAcceleration* angular_acceleration = nullptr;
+
 double kinetic_energy;
+double rotational_energy;
+double grip_strength;
 
 CareRobotRose* rose = nullptr;
 
@@ -101,6 +110,7 @@ ErrorCode_t roll() {
     // Initialise dezyne locator and runtime.
     IResolver iResolver({});
     iResolver.in.resolve_ke_from_acc = resolve_ke_from_acc;
+    iResolver.in.resolve_re_from_ang_acc = resolve_re_from_ang_acc;
 
     dzn::locator locator;
     dzn::runtime runtime;
@@ -118,6 +128,7 @@ ErrorCode_t roll() {
     s.iLEDControl.in.light_led_blue = light_led_blue;
     s.iLEDControl.in.reset_led = reset_led;
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
+    s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = retrieve_re_from_ang_acc;
 
     // Check bindings
     s.check_bindings();
@@ -128,16 +139,16 @@ ErrorCode_t roll() {
 
     // Run indefinitely unless input is equal to "q".
 #if REALTIME
-    rt_printf("Started running indefinitely. press q<enter> to quit.\n");
+    rt_printf("Started running indefinitely.\n");
 #else
-    printf("Started running indefinitely. press q<enter> to quit.\n");
+    printf("Started running indefinitely.\n");
 #endif
     std::string input;
     while (1) {
 #if REALTIME
-        rt_printf("Press d<enter> to execute checks\n");
+        rt_printf("\n");
 #else
-        printf("Press d<enter> to execute checks\n");
+        printf("press: q to quit, d to execute checks, r to reset\n");
 #endif
         std::cin >> input;
         /* input = "a"; */
@@ -151,7 +162,7 @@ ErrorCode_t roll() {
             // Used to pass around kinetic energy from retriever to resolver in
             // dezyne.
             s.iController.in.do_checks();
-        } else if (input == "s") {
+        } else if (input == "r") {
             s.iController.in.reset();
         } else if (input == "i") {
             // Purposely here to show illegal exception handler.
@@ -388,9 +399,30 @@ void sample_acceleration(double* f, const int nsamples) {
 }
 
 
+void sample_angular_acceleration(double* f, const int nsamples) {
+#if REALTIME
+    rt_printf("# rectangles: ");
+#else
+    printf("# rectangles: ");
+#endif
+    int i;
+    for (i = 0; i < nsamples; ++i) {
+        retrieve_angular_acceleration();
+        f[i] = angular_acceleration->current;
+        /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
+        std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
+    }
+#if REALTIME
+    rt_printf("%d, ", i);
+#else
+    printf("%d, ", i);
+#endif
+}
+
+
 void retrieve_ke_from_acc() {
     // numbers of seconds to sample.
-    const double nseconds = 1.0;
+    const double nseconds = 0.5;
     // numbers of samples.
     const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
 #if REALTIME
@@ -435,4 +467,65 @@ Behavior::type resolve_ke_from_acc() {
     Behavior::type behavior = (kinetic_energy > MAX_KE) ? Behavior::type::Unsafe :
         Behavior::type::Safe;
     return behavior;
+}
+
+void retrieve_re_from_ang_acc() {
+    // numbers of seconds to sample.
+    const double nseconds = 0.5;
+    // numbers of samples.
+    const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
+#if REALTIME
+    rt_printf("nsamples: %d\n", nsamples);
+#else
+    printf("nsamples: %d\n", nsamples);
+#endif
+
+    // Save acceleration in here.
+    double a[nsamples];
+
+#if REALTIME
+    rt_printf("SAMPLING ANGULAR ACCELERATION\n");
+#else
+    printf("SAMPLING ANGULAR ACCELERATION\n");
+#endif
+    sample_angular_acceleration(a, nsamples);
+#if REALTIME
+    rt_printf("DONE\n");
+#else
+    printf("DONE\n");
+#endif
+
+    // Numerical integration
+    double angular_velocity = Calculus::trapezoidal_integral(a, nsamples);
+#if REALTIME
+    rt_printf("angular velocity = %f\n", angular_velocity);
+#else
+    printf("angular velocity = %f\n", angular_velocity);
+#endif
+
+    // Calculate kinetic energy
+    rotational_energy = 0.5 * INERTIAL_MASS * angular_velocity * angular_velocity;
+#if REALTIME
+    rt_printf("rotational energy = %f\n", kinetic_energy);
+#else
+    printf("rotational energy = %f\n", kinetic_energy);
+#endif
+}
+
+Behavior::type resolve_re_from_ang_acc() {
+    Behavior::type behavior = (rotational_energy > MAX_RE) ?
+        Behavior::type::Unsafe : Behavior::type::Safe;
+    return behavior;
+}
+
+bool is_moving() {
+    return (velocity->current == 0 || rose->velocity->current == 0) ? false : true;
+}
+
+bool arm_is_folded() {
+    return rose->arm->current_position == 0 ? true : false;
+}
+
+bool arm_has_payload() {
+    return rose->arm->has_payload;
 }
