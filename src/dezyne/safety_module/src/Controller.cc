@@ -130,6 +130,20 @@ void Controller::iController_do_checks()
         }
       }
     }
+    safetyState = this->iGripArmControl.in.check_arm_position();
+    {
+      if (safetyState == ::Behavior::Unsafe) 
+      {
+        this->iLEDControl.in.light_led_red();
+        unsafe_triggered = true;
+      }
+      else {
+        if (!(unsafe_triggered)) 
+        {
+          this->iLEDControl.in.light_led_blue();
+        }
+      }
+    }
   }
   else if (!(state == ::Controller::State::Operating)) dzn_locator.get<dzn::illegal_handler>().illegal();
   else dzn_locator.get<dzn::illegal_handler>().illegal();

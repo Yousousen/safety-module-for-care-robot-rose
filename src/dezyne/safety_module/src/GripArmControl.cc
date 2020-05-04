@@ -45,7 +45,10 @@ GripArmControl::GripArmControl(const dzn::locator& dzn_locator)
 {
 
   {
-    { this->reply_Behavior = ::Behavior::Safe; }
+    ::Behavior::type safetyState = ::Behavior::Safe;
+    this->iGripArmSensor.in.retrieve_arm_pos();
+    safetyState = this->iResolver.in.resolve_arm_pos();
+    { this->reply_Behavior = safetyState; }
   }
 
   return this->reply_Behavior;

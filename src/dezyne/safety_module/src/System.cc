@@ -62,6 +62,7 @@ System::System(const dzn::locator& locator)
   accelerationControl.iAccelerationSensor.in.retrieve_ke_from_acc = std::ref(iAccelerationSensor.in.retrieve_ke_from_acc);
   angularAccelerationControl.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = std::ref(iAngularAccelerationSensor.in.retrieve_re_from_ang_acc);
   gripArmControl.iGripArmSensor.in.retrieve_arm_str = std::ref(iGripArmSensor.in.retrieve_arm_str);
+  gripArmControl.iGripArmSensor.in.retrieve_arm_pos = std::ref(iGripArmSensor.in.retrieve_arm_pos);
 
 
   controller.dzn_meta.parent = &dzn_meta;

@@ -62,7 +62,7 @@ void retrieve_angular_velocity();
 void retrieve_angular_acceleration();
 void retrieve_all();
 
-bool is_moving();
+bool robot_is_moving();
 bool arm_is_folded();
 bool arm_has_payload();
 
@@ -77,6 +77,8 @@ void retrieve_re_from_ang_acc();
 Behavior::type resolve_re_from_ang_acc();
 void retrieve_arm_str();
 Behavior::type resolve_arm_str();
+void retrieve_arm_pos();
+Behavior::type resolve_arm_pos();
 
 void initialise();
 void destruct();
@@ -92,6 +94,7 @@ struct AngularAcceleration* angular_acceleration = nullptr;
 double kinetic_energy;
 double rotational_energy;
 double arm_strength;
+int arm_position;
 
 CareRobotRose* rose = nullptr;
 
@@ -113,6 +116,7 @@ ErrorCode_t roll() {
     iResolver.in.resolve_ke_from_acc = resolve_ke_from_acc;
     iResolver.in.resolve_re_from_ang_acc = resolve_re_from_ang_acc;
     iResolver.in.resolve_arm_str = resolve_arm_str;
+    iResolver.in.resolve_arm_pos = resolve_arm_pos;
 
     dzn::locator locator;
     dzn::runtime runtime;
@@ -132,6 +136,7 @@ ErrorCode_t roll() {
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
     s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = retrieve_re_from_ang_acc;
     s.iGripArmSensor.in.retrieve_arm_str = retrieve_arm_str;
+    s.iGripArmSensor.in.retrieve_arm_pos = retrieve_arm_pos;
 
     // Check bindings
     s.check_bindings();
@@ -543,20 +548,50 @@ void retrieve_arm_str() {
 
 Behavior::type resolve_arm_str() {
     Behavior::type btype;
-    if (arm_has_payload()) {
-        btype = ((arm_strength > MAX_STR) ?  Behavior::type::Unsafe : Behavior::type::Safe);
+    if (robot_is_moving()) {
+        btype = ((arm_strength > MAX_STR) ?
+                Behavior::type::Unsafe : Behavior::type::Safe);
     } else {
-        btype = ((arm_strength > MAX_STR_PAYLOAD) ?  Behavior::type::Unsafe : Behavior::type::Safe);
+        btype = ((arm_strength > MAX_STR_PAYLOAD) ?
+                Behavior::type::Unsafe : Behavior::type::Safe);
     }
     return btype;
 }
 
-bool is_moving() {
+void retrieve_arm_pos() {
+#if REALTIME
+    rt_printf("RETRIEVING GRIP ARM POSITION\n");
+#else
+    printf("RETRIEVING GRIP ARM POSITION\n");
+#endif
+    rose->arm->retrieve_position();
+    arm_position = rose->arm->current_position;
+#if REALTIME
+    rt_printf("Grip arm position: %d\n", arm_position);
+#else
+    printf("Grip arm position: %d\n", arm_position);
+#endif
+#if REALTIME
+    rt_printf("DONE\n");
+#else
+    printf("DONE\n");
+#endif
+}
+
+Behavior::type resolve_arm_pos() {
+    bool moving = robot_is_moving();
+    bool folded = arm_is_folded();
+    if (moving && !folded) return Behavior::type::Unsafe;
+    return Behavior::type::Safe;
+}
+
+
+bool robot_is_moving() {
     return (velocity->current == 0 || rose->velocity->current == 0) ? false : true;
 }
 
 bool arm_is_folded() {
-    return rose->arm->current_position == 0 ? true : false;
+    return arm_position == 0 ? true : false;
 }
 
 bool arm_has_payload() {

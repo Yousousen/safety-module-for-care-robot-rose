@@ -30,9 +30,6 @@ component GripArmControl {
 	requires IGripArmSensor iGripArmSensor;
 	requires injected IResolver iResolver;
 	behaviour {
-		Behavior strState = Behavior.Safe;
-		Behavior posState = Behavior.Safe;
-
 		on iGripArmControl.check_arm_strength(): {
 			Behavior safetyState = Behavior.Safe;
 			iGripArmSensor.retrieve_arm_str();

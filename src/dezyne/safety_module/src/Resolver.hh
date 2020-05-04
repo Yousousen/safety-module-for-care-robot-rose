@@ -51,6 +51,7 @@ struct IResolver
     std::function< ::Behavior::type()> resolve_ke_from_acc;
     std::function< ::Behavior::type()> resolve_re_from_ang_acc;
     std::function< ::Behavior::type()> resolve_arm_str;
+    std::function< ::Behavior::type()> resolve_arm_pos;
   } in;
 
   struct
@@ -65,6 +66,7 @@ struct IResolver
     if (! in.resolve_ke_from_acc) throw dzn::binding_error(meta, "in.resolve_ke_from_acc");
     if (! in.resolve_re_from_ang_acc) throw dzn::binding_error(meta, "in.resolve_re_from_ang_acc");
     if (! in.resolve_arm_str) throw dzn::binding_error(meta, "in.resolve_arm_str");
+    if (! in.resolve_arm_pos) throw dzn::binding_error(meta, "in.resolve_arm_pos");
 
 
   }

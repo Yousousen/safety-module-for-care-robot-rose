@@ -45,20 +45,6 @@ struct Behavior
 
 struct IGripArmControl
 {
-#ifndef ENUM_IGripArmControl_State
-#define ENUM_IGripArmControl_State 1
-
-
-  struct State
-  {
-    enum type
-    {
-      Unsafe,Safe
-    };
-  };
-
-
-#endif // ENUM_IGripArmControl_State
 
   struct
   {
@@ -104,19 +90,6 @@ inline std::string to_string(::Behavior::type v)
   return "";
 }
 #endif // ENUM_TO_STRING_Behavior
-#ifndef ENUM_TO_STRING_IGripArmControl_State
-#define ENUM_TO_STRING_IGripArmControl_State 1
-inline std::string to_string(::IGripArmControl::State::type v)
-{
-  switch(v)
-  {
-    case ::IGripArmControl::State::Unsafe: return "State_Unsafe";
-    case ::IGripArmControl::State::Safe: return "State_Safe";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_IGripArmControl_State
 
 #ifndef STRING_TO_ENUM_Behavior
 #define STRING_TO_ENUM_Behavior 1
@@ -129,17 +102,6 @@ inline ::Behavior::type to_Behavior(std::string s)
   return m.at(s);
 }
 #endif // STRING_TO_ENUM_Behavior
-#ifndef STRING_TO_ENUM_IGripArmControl_State
-#define STRING_TO_ENUM_IGripArmControl_State 1
-inline ::IGripArmControl::State::type to_IGripArmControl_State(std::string s)
-{
-  static std::map<std::string, ::IGripArmControl::State::type> m = {
-    {"State_Unsafe", ::IGripArmControl::State::Unsafe},
-    {"State_Safe", ::IGripArmControl::State::Safe},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_IGripArmControl_State
 
 
 #endif // IGRIPARMCONTROL_HH
@@ -157,6 +119,7 @@ struct IGripArmSensor
   struct
   {
     std::function< void()> retrieve_arm_str;
+    std::function< void()> retrieve_arm_pos;
   } in;
 
   struct
@@ -169,6 +132,7 @@ struct IGripArmSensor
   void check_bindings() const
   {
     if (! in.retrieve_arm_str) throw dzn::binding_error(meta, "in.retrieve_arm_str");
+    if (! in.retrieve_arm_pos) throw dzn::binding_error(meta, "in.retrieve_arm_pos");
 
 
   }

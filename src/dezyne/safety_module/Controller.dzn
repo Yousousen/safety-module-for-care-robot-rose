@@ -88,6 +88,15 @@ component Controller {
 				} else if (!unsafe_triggered) {
 						iLEDControl.light_led_blue();
 				}
+
+				// check grip arm position
+				safetyState = iGripArmControl.check_arm_position();
+				if (safetyState == Behavior.Unsafe) {
+					iLEDControl.light_led_red();
+					unsafe_triggered = true;
+				} else if (!unsafe_triggered) {
+						iLEDControl.light_led_blue();
+				}
 			}
 			// Unsafe behavior is acknowledged, reset state.
 			on iController.reset(): {
