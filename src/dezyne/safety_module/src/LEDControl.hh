@@ -36,6 +36,20 @@ struct Behavior
 
 
 #endif // ENUM_Behavior
+#ifndef ENUM_UnsafeTriggered
+#define ENUM_UnsafeTriggered 1
+
+
+struct UnsafeTriggered
+{
+  enum type
+  {
+    No,Yes
+  };
+};
+
+
+#endif // ENUM_UnsafeTriggered
 
 /********************************** INTERFACE *********************************/
 #ifndef ILEDCONTROL_HH
@@ -124,6 +138,19 @@ inline std::string to_string(::Behavior::type v)
   return "";
 }
 #endif // ENUM_TO_STRING_Behavior
+#ifndef ENUM_TO_STRING_UnsafeTriggered
+#define ENUM_TO_STRING_UnsafeTriggered 1
+inline std::string to_string(::UnsafeTriggered::type v)
+{
+  switch(v)
+  {
+    case ::UnsafeTriggered::No: return "UnsafeTriggered_No";
+    case ::UnsafeTriggered::Yes: return "UnsafeTriggered_Yes";
+
+  }
+  return "";
+}
+#endif // ENUM_TO_STRING_UnsafeTriggered
 #ifndef ENUM_TO_STRING_ILEDControl_State
 #define ENUM_TO_STRING_ILEDControl_State 1
 inline std::string to_string(::ILEDControl::State::type v)
@@ -163,6 +190,17 @@ inline ::Behavior::type to_Behavior(std::string s)
   return m.at(s);
 }
 #endif // STRING_TO_ENUM_Behavior
+#ifndef STRING_TO_ENUM_UnsafeTriggered
+#define STRING_TO_ENUM_UnsafeTriggered 1
+inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
+{
+  static std::map<std::string, ::UnsafeTriggered::type> m = {
+    {"UnsafeTriggered_No", ::UnsafeTriggered::No},
+    {"UnsafeTriggered_Yes", ::UnsafeTriggered::Yes},
+  };
+  return m.at(s);
+}
+#endif // STRING_TO_ENUM_UnsafeTriggered
 #ifndef STRING_TO_ENUM_ILEDControl_State
 #define STRING_TO_ENUM_ILEDControl_State 1
 inline ::ILEDControl::State::type to_ILEDControl_State(std::string s)

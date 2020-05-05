@@ -11,7 +11,6 @@ interface IAccelerationControl {
 }
 
 interface IAccelerationSensor {
-//	in void retrieve_ke_from_acc(out ke_ptr_t ke);
 	in void retrieve_ke_from_acc();
 	
 	behaviour {
@@ -26,12 +25,8 @@ component AccelerationControl {
 
 	behaviour {
 		on iAccelerationControl.check_acceleration(): {
-//			ke_ptr_t ke_ptr;
-//			ke_t ke;
 			Behavior safetyState = Behavior.Safe;
-//			iAccelerationSensor.retrieve_ke_from_acc(ke_ptr);
 			iAccelerationSensor.retrieve_ke_from_acc();
-//			safetyState = iResolver.resolve_ke_from_acc(ke);
 			safetyState = iResolver.resolve_ke_from_acc();
 			reply(safetyState);
 		}

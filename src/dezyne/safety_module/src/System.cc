@@ -51,8 +51,21 @@ System::System(const dzn::locator& locator)
   iController.in.do_checks = [&] () {
     return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.do_checks();});
   };
+  iController.in.check_acc = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_acc();});
+  };
+  iController.in.check_angacc = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_angacc();});
+  };
+  iController.in.check_str = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_str();});
+  };
+  iController.in.check_pos = [&] () {
+    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_pos();});
+  };
 
 
+  controller.iController.out.what_triggered = std::ref(iController.out.what_triggered);
 
   controller.iLEDControl.in.initialise_framebuffer = std::ref(iLEDControl.in.initialise_framebuffer);
   controller.iLEDControl.in.destruct_framebuffer = std::ref(iLEDControl.in.destruct_framebuffer);

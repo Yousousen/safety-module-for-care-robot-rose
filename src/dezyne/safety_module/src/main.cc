@@ -83,6 +83,7 @@ Behavior::type resolve_arm_pos();
 void initialise();
 void destruct();
 
+void what_triggered(bool acc, bool angacc, bool str, bool pos);
 
 /*** Global variables ***/
 struct Position* position = nullptr;
@@ -128,15 +129,20 @@ ErrorCode_t roll() {
 
 
     /*** Bind native functions ***/
+    s.iController.out.what_triggered = what_triggered;
+
     s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
     s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
     s.iLEDControl.in.light_led_red = light_led_red;
     s.iLEDControl.in.light_led_blue = light_led_blue;
     s.iLEDControl.in.reset_led = reset_led;
+
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
     s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = retrieve_re_from_ang_acc;
+
     s.iGripArmSensor.in.retrieve_arm_str = retrieve_arm_str;
     s.iGripArmSensor.in.retrieve_arm_pos = retrieve_arm_pos;
+
 
     // Check bindings
     s.check_bindings();
@@ -154,22 +160,26 @@ ErrorCode_t roll() {
     std::string input;
     while (1) {
 #if REALTIME
-        rt_printf("\n");
+        rt_printf("press: q to quit, d to execute all checks, r to reset\n");
+        rt_printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
 #else
-        printf("press: q to quit, d to execute checks, r to reset\n");
+        printf("press: q to quit, d to execute all checks, r to reset\n");
+        printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
 #endif
         std::cin >> input;
         /* input = "a"; */
         if (input == "q") {
             break;
-        /* } else if (input == "r") { // for debugging */
-            /* s.iController.in.light_red(); */
-        /* } else if (input == "b") { */
-            /* s.iController.in.light_blue(); // for debugging */
         } else if (input == "d") {
-            // Used to pass around kinetic energy from retriever to resolver in
-            // dezyne.
             s.iController.in.do_checks();
+        } else if (input == "a") {
+            s.iController.in.check_acc();
+        } else if (input == "aa") {
+            s.iController.in.check_angacc();
+        } else if (input == "s") {
+            s.iController.in.check_str();
+        } else if (input == "p") {
+            s.iController.in.check_pos();
         } else if (input == "r") {
             s.iController.in.reset();
         } else if (input == "i") {
@@ -443,15 +453,15 @@ void retrieve_ke_from_acc() {
     double a[nsamples];
 
 #if REALTIME
-    rt_printf("SAMPLING ACCELERATION\n");
+    rt_printf(">>> sampling acceleration\n\n");
 #else
-    printf("SAMPLING ACCELERATION\n");
+    printf(">>> sampling acceleration\n\n");
 #endif
     sample_acceleration(a, nsamples);
 #if REALTIME
-    rt_printf("DONE\n");
+    rt_printf("\n<<< done\n\n");
 #else
-    printf("DONE\n");
+    printf("\n<<< done\n\n");
 #endif
 
     // Numerical integration
@@ -492,15 +502,15 @@ void retrieve_re_from_ang_acc() {
     double a[nsamples];
 
 #if REALTIME
-    rt_printf("SAMPLING ANGULAR ACCELERATION\n");
+    rt_printf(">>> sampling angular acceleration\n\n");
 #else
-    printf("SAMPLING ANGULAR ACCELERATION\n");
+    printf(">>> sampling angular acceleration\n\n");
 #endif
     sample_angular_acceleration(a, nsamples);
 #if REALTIME
-    rt_printf("DONE\n");
+    rt_printf("<<< done\n\n");
 #else
-    printf("DONE\n");
+    printf("<<< done\n\n");
 #endif
 
     // Numerical integration
@@ -528,31 +538,33 @@ Behavior::type resolve_re_from_ang_acc() {
 
 void retrieve_arm_str() {
 #if REALTIME
-    rt_printf("RETRIEVING GRIP ARM STRENGTH\n");
+    rt_printf(">>> retrieving grip arm strength\n\n");
 #else
-    printf("RETRIEVING GRIP ARM STRENGTH\n");
+    printf(">>> retrieving grip arm strength\n\n");
 #endif
     rose->arm->retrieve_strength();
     arm_strength = rose->arm->current_strength;
+    // Unneeded, just for slow output.
+    std::this_thread::sleep_for(std::chrono::microseconds(500));
 #if REALTIME
     rt_printf("Grip arm strength: %f\n", arm_strength);
 #else
     printf("Grip arm strength: %f\n", arm_strength);
 #endif
 #if REALTIME
-    rt_printf("DONE\n");
+    rt_printf("<<< done\n\n");
 #else
-    printf("DONE\n");
+    printf("<<< done\n\n");
 #endif
 }
 
 Behavior::type resolve_arm_str() {
     Behavior::type btype;
-    if (robot_is_moving()) {
-        btype = ((arm_strength > MAX_STR) ?
+    if (arm_has_payload()) {
+        btype = ((arm_strength > MAX_STR_PAYLOAD) ?
                 Behavior::type::Unsafe : Behavior::type::Safe);
     } else {
-        btype = ((arm_strength > MAX_STR_PAYLOAD) ?
+        btype = ((arm_strength > MAX_STR) ?
                 Behavior::type::Unsafe : Behavior::type::Safe);
     }
     return btype;
@@ -560,21 +572,23 @@ Behavior::type resolve_arm_str() {
 
 void retrieve_arm_pos() {
 #if REALTIME
-    rt_printf("RETRIEVING GRIP ARM POSITION\n");
+    rt_printf(">>> retrieving grip arm position\n\n");
 #else
-    printf("RETRIEVING GRIP ARM POSITION\n");
+    printf(">>> retrieving grip arm position\n\n");
 #endif
     rose->arm->retrieve_position();
     arm_position = rose->arm->current_position;
+    // Unneeded, just for slow output.
+    std::this_thread::sleep_for(std::chrono::microseconds(500));
 #if REALTIME
     rt_printf("Grip arm position: %d\n", arm_position);
 #else
     printf("Grip arm position: %d\n", arm_position);
 #endif
 #if REALTIME
-    rt_printf("DONE\n");
+    rt_printf("<<< done\n\n");
 #else
-    printf("DONE\n");
+    printf("<<< done\n\n");
 #endif
 }
 
@@ -591,9 +605,30 @@ bool robot_is_moving() {
 }
 
 bool arm_is_folded() {
-    return arm_position == 0 ? true : false;
+    return (arm_position == 0 ? true : false);
 }
 
 bool arm_has_payload() {
     return rose->arm->has_payload;
+}
+
+void what_triggered(bool acc, bool angacc, bool str, bool pos) {
+    if (!(acc || angacc || str || pos)) return;
+#if REALTIME
+    rt_printf(">>> what triggered\n\n");
+    rt_printf("Unsafe behavior caused by:\n");
+    if (acc)    rt_printf("acceleration\n");
+    if (angacc) rt_printf("angular acceleration\n");
+    if (str)    rt_printf("arm strength\n");
+    if (pos)    rt_printf("arm position\n");
+    rt_printf("<<<\n\n");
+#else
+    printf(">>> what triggered:\n\n");
+    printf("Unsafe behavior caused by:\n");
+    if (acc)    printf("acceleration\n");
+    if (angacc) printf("angular acceleration\n");
+    if (str)    printf("arm strength\n");
+    if (pos)    printf("arm position\n");
+    printf("<<<\n\n");
+#endif
 }

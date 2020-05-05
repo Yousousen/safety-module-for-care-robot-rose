@@ -18,8 +18,8 @@
 // Maximum allowed kinetic energy
 #define MAX_KE 150
 #define MAX_RE 250
-#define MAX_STR 100
-#define MAX_STR_PAYLOAD 200
+#define MAX_STR 50
+#define MAX_STR_PAYLOAD 80
 
 // For sampling and calculus
 // Δt (ms)

@@ -36,6 +36,20 @@ struct Behavior
 
 
 #endif // ENUM_Behavior
+#ifndef ENUM_UnsafeTriggered
+#define ENUM_UnsafeTriggered 1
+
+
+struct UnsafeTriggered
+{
+  enum type
+  {
+    No,Yes
+  };
+};
+
+
+#endif // ENUM_UnsafeTriggered
 
 
 

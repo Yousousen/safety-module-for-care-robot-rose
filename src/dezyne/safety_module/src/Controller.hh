@@ -36,6 +36,20 @@ struct Behavior
 
 
 #endif // ENUM_Behavior
+#ifndef ENUM_UnsafeTriggered
+#define ENUM_UnsafeTriggered 1
+
+
+struct UnsafeTriggered
+{
+  enum type
+  {
+    No,Yes
+  };
+};
+
+
+#endif // ENUM_UnsafeTriggered
 
 /********************************** INTERFACE *********************************/
 #ifndef ICONTROLLER_HH
@@ -65,11 +79,16 @@ struct IController
     std::function< void()> initialise;
     std::function< void()> destruct;
     std::function< void()> reset;
-    std::function< void()> do_checks;
+    std::function< ::UnsafeTriggered::type()> do_checks;
+    std::function< ::UnsafeTriggered::type()> check_acc;
+    std::function< ::UnsafeTriggered::type()> check_angacc;
+    std::function< ::UnsafeTriggered::type()> check_str;
+    std::function< ::UnsafeTriggered::type()> check_pos;
   } in;
 
   struct
   {
+    std::function< void(bool,bool,bool,bool)> what_triggered;
   } out;
 
   dzn::port::meta meta;
@@ -81,7 +100,12 @@ struct IController
     if (! in.destruct) throw dzn::binding_error(meta, "in.destruct");
     if (! in.reset) throw dzn::binding_error(meta, "in.reset");
     if (! in.do_checks) throw dzn::binding_error(meta, "in.do_checks");
+    if (! in.check_acc) throw dzn::binding_error(meta, "in.check_acc");
+    if (! in.check_angacc) throw dzn::binding_error(meta, "in.check_angacc");
+    if (! in.check_str) throw dzn::binding_error(meta, "in.check_str");
+    if (! in.check_pos) throw dzn::binding_error(meta, "in.check_pos");
 
+    if (! out.what_triggered) throw dzn::binding_error(meta, "out.what_triggered");
 
   }
 };
@@ -108,6 +132,19 @@ inline std::string to_string(::Behavior::type v)
   return "";
 }
 #endif // ENUM_TO_STRING_Behavior
+#ifndef ENUM_TO_STRING_UnsafeTriggered
+#define ENUM_TO_STRING_UnsafeTriggered 1
+inline std::string to_string(::UnsafeTriggered::type v)
+{
+  switch(v)
+  {
+    case ::UnsafeTriggered::No: return "UnsafeTriggered_No";
+    case ::UnsafeTriggered::Yes: return "UnsafeTriggered_Yes";
+
+  }
+  return "";
+}
+#endif // ENUM_TO_STRING_UnsafeTriggered
 #ifndef ENUM_TO_STRING_IController_State
 #define ENUM_TO_STRING_IController_State 1
 inline std::string to_string(::IController::State::type v)
@@ -133,6 +170,17 @@ inline ::Behavior::type to_Behavior(std::string s)
   return m.at(s);
 }
 #endif // STRING_TO_ENUM_Behavior
+#ifndef STRING_TO_ENUM_UnsafeTriggered
+#define STRING_TO_ENUM_UnsafeTriggered 1
+inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
+{
+  static std::map<std::string, ::UnsafeTriggered::type> m = {
+    {"UnsafeTriggered_No", ::UnsafeTriggered::No},
+    {"UnsafeTriggered_Yes", ::UnsafeTriggered::Yes},
+  };
+  return m.at(s);
+}
+#endif // STRING_TO_ENUM_UnsafeTriggered
 #ifndef STRING_TO_ENUM_IController_State
 #define STRING_TO_ENUM_IController_State 1
 inline ::IController::State::type to_IController_State(std::string s)
@@ -180,9 +228,14 @@ struct Controller
 
 #endif // ENUM_Controller_State
 
-  bool unsafe_triggered;
-  ::Controller::State::type state;
+  ::Controller::State::type systemState;
+  bool unsafe_acknowledged;
+  bool acc_triggered;
+  bool angacc_triggered;
+  bool str_triggered;
+  bool pos_triggered;
 
+  ::UnsafeTriggered::type reply_UnsafeTriggered;
   ::Behavior::type reply_Behavior;
 
   std::function<void ()> out_iController;
@@ -200,13 +253,17 @@ struct Controller
   void dump_tree(std::ostream& os) const;
   friend std::ostream& operator << (std::ostream& os, const Controller& m)  {
     (void)m;
-    return os << "[" << m.unsafe_triggered <<", " << m.state <<"]" ;
+    return os << "[" << m.systemState <<", " << m.unsafe_acknowledged <<", " << m.acc_triggered <<", " << m.angacc_triggered <<", " << m.str_triggered <<", " << m.pos_triggered <<"]" ;
   }
   private:
   void iController_initialise();
   void iController_destruct();
   void iController_reset();
-  void iController_do_checks();
+  ::UnsafeTriggered::type iController_do_checks();
+  ::UnsafeTriggered::type iController_check_acc();
+  ::UnsafeTriggered::type iController_check_angacc();
+  ::UnsafeTriggered::type iController_check_str();
+  ::UnsafeTriggered::type iController_check_pos();
 
 };
 

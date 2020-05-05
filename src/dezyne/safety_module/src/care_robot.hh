@@ -71,7 +71,7 @@ class GripArm {
     public:
         // Constructors
         GripArm() : current_strength(0.0), change_strength(0.0),
-        max_strength(0.0), min_strength(0.0), current_position(0.0),
+        max_strength(0.0), min_strength(0.0), current_position(0),
         change_position(0.0), max_position(0.0), min_position(0.0),
         has_payload(false) {};
 
@@ -87,10 +87,10 @@ class GripArm {
         double change_strength;
         double max_strength;
         double min_strength;
-        double current_position;
-        double change_position;
-        double max_position;
-        double min_position;
+        int current_position;
+        int change_position;
+        int max_position;
+        int min_position;
 
         // Conditions
         bool has_payload;
