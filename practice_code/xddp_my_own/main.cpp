@@ -129,6 +129,11 @@ enum ErrorCode_t { OK = 0x00, NOT_OK = 0x01 };
 
 /*** END CONSTANTS_H ***/
 
+// arguments for threads
+struct threadargs {
+    // framebuffer mutex pointer.
+    pthread_mutex_t* mutex_fb;
+};
 
 
 struct fb_t *fb;
@@ -246,7 +251,7 @@ static void fail(const char *reason)
 
 
 
-static void *realtime_thread(void *arg)
+static void* realtime_thread(void *arg)
 {
     struct sockaddr_ipc saddr;
     int ret, s, n = 0, len;
@@ -329,8 +334,12 @@ static void *realtime_thread(void *arg)
     return NULL;
 }
 
-static void *regular_thread(void *arg)
+static void* regular_thread(void *arg)
 {
+    struct threadargs *args = (struct threadargs *)arg;
+    // Pointer to mutex is passed as an argument.
+    pthread_mutex_t* mutex_fb = args->mutex_fb;
+
     char buf[128], *devname;
     int fd, ret;
     if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT) < 0)
@@ -349,7 +358,18 @@ static void *regular_thread(void *arg)
         // Convert hex string to int.
         int color = (int)strtol(buf, NULL, 16);
 
+        // Lock the frame buffer while setting color.
+        if (0 != (errno = pthread_mutex_lock(mutex_fb))) {
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+        // Color the matrix.
         color_all(color);
+        // Unlock the frame buffer.
+        if (0 != (errno = pthread_mutex_unlock(mutex_fb))) {
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
 
         /* Echo the message back to realtime_thread. */
         ret = write(fd, buf, ret);
@@ -382,35 +402,60 @@ int main(int argc, char **argv)
 	memset(fb, 0, 128);
 
 
-    // xenomai task stuff
     struct sched_param rtparam = { .sched_priority = 42 };
     pthread_attr_t rtattr, regattr;
     sigset_t set;
     int sig;
+
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
     sigaddset(&set, SIGTERM);
     sigaddset(&set, SIGHUP);
     pthread_sigmask(SIG_BLOCK, &set, NULL);
+
     pthread_attr_init(&rtattr);
     pthread_attr_setdetachstate(&rtattr, PTHREAD_CREATE_JOINABLE);
     pthread_attr_setinheritsched(&rtattr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setschedpolicy(&rtattr, SCHED_FIFO);
     pthread_attr_setschedparam(&rtattr, &rtparam);
+
     errno = pthread_create(&rt, &rtattr, &realtime_thread, NULL);
     if (errno)
         fail("pthread_create");
+
     pthread_attr_init(&regattr);
     pthread_attr_setdetachstate(&regattr, PTHREAD_CREATE_JOINABLE);
     pthread_attr_setinheritsched(&regattr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setschedpolicy(&regattr, SCHED_OTHER);
-    errno = pthread_create(&nrt, &regattr, &regular_thread, NULL);
+
+    // arguments for threads
+    struct threadargs threadargs;
+
+    // Initialise mutex.
+    // Create a mutex with the default parameters
+    pthread_mutex_t mutex_fb;
+    if (0 != (errno = pthread_mutex_init(&mutex_fb, NULL)))
+    {
+        perror("pthread_mutex_init() failed");
+        return EXIT_FAILURE;
+    }
+    threadargs.mutex_fb = &mutex_fb;
+
+    errno = pthread_create(&nrt, &regattr, &regular_thread, (void*) &threadargs);
     if (errno)
         fail("pthread_create");
+
     sigwait(&set, &sig);
     pthread_cancel(rt);
     pthread_cancel(nrt);
     pthread_join(rt, NULL);
     pthread_join(nrt, NULL);
+
+    // Destroy mutex
+    if (0 != (errno = pthread_mutex_destroy(&mutex_fb)))
+    {
+        perror("pthread_mutex_destroy() failed");
+        return EXIT_FAILURE;
+    }
     return 0;
 }
