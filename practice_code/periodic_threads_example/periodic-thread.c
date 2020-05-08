@@ -7,25 +7,32 @@
 #include <sys/time.h>
 
 #define NSEC_PER_SEC 1000000000ULL
-/* HACK, needed because of a bug in old glibc */
-/* extern int clock_nanosleep(clockid_t __clock_id, int __flags, */
-/*                            __const struct timespec *__req, */
-/*                            struct timespec *__rem); */
 
+struct th_info {
+  int period;
+  void (*body)(void);
+};
 
-
-
+struct periodic_task {
+  struct timespec ts;
+  int period;
+};
 struct periodic_task;
-struct periodic_task *start_periodic_timer(unsigned long long offs, int t);
-void wait_next_activation(struct periodic_task *t);
+
+
+// Start a periodic timer with an offset.
+// the function returns a new periodic task object, with the period set to t.
+struct periodic_task *start_periodic_timer(unsigned long long offset_in_us, int period);
+void wait_next_activation(struct periodic_task *ptask);
 
 
 void task1(void)
 {
-  int i,j;
+  int i;
+  /* int j; */
  
   for (i=0; i<3; i++) {
-    for (j=0; j<1000; j++) ;
+    /* for (j=0; j<1000; j++) ; */
     printf("1");
     fflush(stdout);
   }
@@ -33,15 +40,17 @@ void task1(void)
 
 void task2(void)
 {
-  int i,j;
+  int i;
+  /* int j; */
 
   for (i=0; i<5; i++) {
-    for (j=0; j<10000; j++) ;
+    /* for (j=0; j<10000; j++) ; */
     printf("2");
     fflush(stdout);
   }
 }
 
+// Ellapsed time in milliseconds.
 void task3(void)
 {
   static unsigned long long previous;
@@ -60,26 +69,22 @@ void task3(void)
 }
 
 
-struct th_info {
-  int period;
-  void (*body)(void);
-};
-
-static void *thread_body(void *p)
+static void *thread_body(void *arg)
 {
-    struct periodic_task *t;
-    struct th_info *t_i = p;
+    struct periodic_task *ptask;
+    struct th_info *the_thread = arg;
 
-    t = start_periodic_timer(2000000, t_i->period);
-    if (t == NULL) {
+    /* ptask = start_periodic_timer(2000000, the_thread->period); */
+    ptask = start_periodic_timer(0, the_thread->period);
+    if (ptask == NULL) {
         printf("Start Periodic Timer");
 
         return NULL;
     }
 
     while(1) {
-        wait_next_activation(t);
-        t_i->body();
+        wait_next_activation(ptask);
+        the_thread->body();
     }
 
     return NULL;
@@ -106,7 +111,10 @@ static pthread_t *create_threads(void)
     }
 
     t_3.body = task3;
-    t_3.period = 70000;
+    /* t_3.period = 70000; */
+    /* t_3.period = 1E6-1000; */
+    // 1s
+    t_3.period = 1E6;
     err = pthread_create(&id[2], NULL, thread_body, &t_3);
     if (err) {
         printf("PThread Create");
@@ -133,49 +141,53 @@ int main(int argc, char *argv[])
     pthread_t *id;
 
     id = create_threads();
-    sleep(20);
+    // Kill threads after 10 seconds.
+    sleep(10);
 
     kill_threads(id);
 
     return 0;
 }
 
-struct periodic_task {
-  struct timespec r;
-  int period;
-};
-
-static inline void timespec_add_us(struct timespec *t, unsigned long long d)
+// Add period microseconds to timespec ts.
+static inline void timespec_add_us(struct timespec *ts, unsigned long long period)
 {
-    d *= 1000;
-    d += t->tv_nsec;
-    while (d >= NSEC_PER_SEC) {
-        d -= NSEC_PER_SEC;
-	t->tv_sec += 1;
+    // (1µs) = 1000 * (1ns)
+    period *= 1000;
+    // Add number of nanoseconds already in ts to period.
+    period += ts->tv_nsec;
+    // To set tv_sec to the correct number we look at how many seconds of
+    // nanoseconds there are in period.
+    while (period >= NSEC_PER_SEC) {
+        period -= NSEC_PER_SEC;
+	ts->tv_sec += 1;
     }
-    t->tv_nsec = d;
+    // The nanoseconds left.
+    ts->tv_nsec = period;
 }
 
-void wait_next_activation(struct periodic_task *t)
+void wait_next_activation(struct periodic_task *ptask)
 {
-    clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &t->r, NULL);
-    timespec_add_us(&t->r, t->period);
+    // Suspend the thread until the time value specified by &t->ts has elapsed.
+    clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &ptask->ts, NULL);
+    // Add another period to the time specification.
+    timespec_add_us(&ptask->ts, ptask->period);
 }
 
-struct periodic_task *start_periodic_timer(unsigned long long offs, int t)
+struct periodic_task *start_periodic_timer(unsigned long long offset_in_us, int period)
 {
-    struct periodic_task *p;
+    struct periodic_task *ptask;
 
-    p = malloc(sizeof(struct periodic_task));
-    if (p == NULL) {
+    ptask = malloc(sizeof(struct periodic_task));
+    if (ptask == NULL) {
         return NULL;
     }
 
-    clock_gettime(CLOCK_REALTIME, &p->r);
-    timespec_add_us(&p->r, offs);
-    p->period = t;
+    clock_gettime(CLOCK_REALTIME, &ptask->ts);
+    timespec_add_us(&ptask->ts, offset_in_us);
+    ptask->period = period;
 
-    return p;
+    return ptask;
 }
 
 
