@@ -21,7 +21,7 @@ Controller::Controller(const dzn::locator& dzn_locator)
 : dzn_meta{"","Controller",0,0,{& iLEDControl.meta,& iAccelerationControl.meta,& iAngularAccelerationControl.meta,& iGripArmControl.meta},{},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationControl.check_bindings();},[this]{iAngularAccelerationControl.check_bindings();},[this]{iGripArmControl.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
-, systemState(::Controller::State::Idle), unsafe_acknowledged(true), acc_triggered(), angacc_triggered(), str_triggered(), pos_triggered()
+, systemState(::Controller::State::Idle), unsafe_acknowledged(true), acc_triggered(), angacc_triggered(), str_triggered(), pos_triggered(), red("0x3000"), blue("0x0006")
 
 , iController({{"iController",this,&dzn_meta},{"",0,0}})
 
@@ -100,14 +100,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         acc_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }
@@ -115,14 +115,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         angacc_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }
@@ -130,14 +130,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         str_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }
@@ -145,14 +145,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         pos_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }
@@ -176,14 +176,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         acc_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }
@@ -207,14 +207,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         angacc_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }
@@ -238,14 +238,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         str_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }
@@ -269,14 +269,14 @@ void Controller::iController_reset()
     {
       if (safetyState == ::Behavior::Unsafe) 
       {
-        this->iLEDControl.in.light_led_red();
+        this->iLEDControl.in.light_led_red(red);
         unsafe_acknowledged = false;
         pos_triggered = true;
       }
       else {
         if (unsafe_acknowledged) 
         {
-          this->iLEDControl.in.light_led_blue();
+          this->iLEDControl.in.light_led_blue(blue);
         }
       }
     }

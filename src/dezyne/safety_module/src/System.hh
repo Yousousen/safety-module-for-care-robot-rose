@@ -51,14 +51,12 @@ struct UnsafeTriggered
 
 #endif // ENUM_UnsafeTriggered
 
-/***********************************  SHELL  ************************************/
+/***********************************  SYSTEM  ***********************************/
 #ifndef SYSTEM_HH
 #define SYSTEM_HH
 
 
 #include <dzn/locator.hh>
-#include <dzn/runtime.hh>
-#include <dzn/pump.hh>
 
 #include "Controller.hh"
 #include "AccelerationControl.hh"
@@ -70,8 +68,8 @@ struct UnsafeTriggered
 struct System
 {
   dzn::meta dzn_meta;
-  dzn::runtime dzn_rt;
-  dzn::locator dzn_locator;
+  dzn::runtime& dzn_rt;
+  dzn::locator const& dzn_locator;
 
 
   ::Controller controller;
@@ -79,14 +77,13 @@ struct System
   ::AngularAccelerationControl angularAccelerationControl;
   ::GripArmControl gripArmControl;
 
-  ::IController iController;
+  ::IController& iController;
 
-  ::ILEDControl iLEDControl;
-  ::IAccelerationSensor iAccelerationSensor;
-  ::IAngularAccelerationSensor iAngularAccelerationSensor;
-  ::IGripArmSensor iGripArmSensor;
+  ::ILEDControl& iLEDControl;
+  ::IAccelerationSensor& iAccelerationSensor;
+  ::IAngularAccelerationSensor& iAngularAccelerationSensor;
+  ::IGripArmSensor& iGripArmSensor;
 
-  dzn::pump dzn_pump;
   System(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os=std::clog) const;
@@ -94,7 +91,7 @@ struct System
 
 #endif // SYSTEM_HH
 
-/***********************************  SHELL  ************************************/
+/***********************************  SYSTEM  ***********************************/
 
 
 //version: 2.9.1

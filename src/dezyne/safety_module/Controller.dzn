@@ -67,6 +67,10 @@ component Controller {
 		bool_t str_triggered;
 		bool_t pos_triggered;
 
+		color_t red = $"0x3000"$;
+		color_t blue = $"0x0006"$;
+		
+
 		[systemState.Idle] {
 			on iController.initialise(): {
 				iLEDControl.initialise_framebuffer();
@@ -89,41 +93,41 @@ component Controller {
 				// check acceleration
 				Behavior safetyState = iAccelerationControl.check_acceleration();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					acc_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 
 				// check angular acceleration
 				safetyState = iAngularAccelerationControl.check_angular_acceleration();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					angacc_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 				
 				// check grip arm strength
 				safetyState = iGripArmControl.check_arm_strength();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					str_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 
 				// check grip arm position
 				safetyState = iGripArmControl.check_arm_position();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					pos_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 
 				iController.what_triggered(
@@ -139,11 +143,11 @@ component Controller {
 				// check acceleration
 				Behavior safetyState = iAccelerationControl.check_acceleration();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					acc_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 
 				iController.what_triggered(
@@ -160,11 +164,11 @@ component Controller {
 				Behavior safetyState =
 				iAngularAccelerationControl.check_angular_acceleration();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					angacc_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 
 				iController.what_triggered(
@@ -179,11 +183,11 @@ component Controller {
 				// check grip arm strength
 				Behavior safetyState = iGripArmControl.check_arm_strength();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					str_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 
 				iController.what_triggered(
@@ -199,11 +203,11 @@ component Controller {
 				// check grip arm position
 				Behavior safetyState = iGripArmControl.check_arm_position();
 				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red();
+					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 					pos_triggered = $true$;
 				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue();
+						iLEDControl.light_led_blue(blue);
 				}
 
 				iController.what_triggered(

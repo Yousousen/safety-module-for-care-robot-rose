@@ -16,10 +16,12 @@
 #include <dzn/runtime.hh>
 
 
+//SYSTEM
 
-System::System(const dzn::locator& locator)
+System::System(const dzn::locator& dzn_locator)
 : dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularAccelerationSensor.meta,& iGripArmSensor.meta},{& controller.dzn_meta,& accelerationControl.dzn_meta,& angularAccelerationControl.dzn_meta,& gripArmControl.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularAccelerationSensor.check_bindings();},[this]{iGripArmSensor.check_bindings();}}}
-, dzn_locator(locator.clone().set(dzn_rt).set(dzn_pump))
+, dzn_rt(dzn_locator.get<dzn::runtime>())
+, dzn_locator(dzn_locator)
 
 
 , controller(dzn_locator)
@@ -29,53 +31,7 @@ System::System(const dzn::locator& locator)
 
 , iController(controller.iController)
 , iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationControl.iAccelerationSensor), iAngularAccelerationSensor(angularAccelerationControl.iAngularAccelerationSensor), iGripArmSensor(gripArmControl.iGripArmSensor)
-, dzn_pump()
 {
-  controller.iController.meta.requires.port = "iController";
-
-  controller.iLEDControl.meta.provides.port = "iLEDControl";
-  accelerationControl.iAccelerationSensor.meta.provides.port = "iAccelerationSensor";
-  angularAccelerationControl.iAngularAccelerationSensor.meta.provides.port = "iAngularAccelerationSensor";
-  gripArmControl.iGripArmSensor.meta.provides.port = "iGripArmSensor";
-
-
-  iController.in.initialise = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.initialise();});
-  };
-  iController.in.destruct = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.destruct();});
-  };
-  iController.in.reset = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.reset();});
-  };
-  iController.in.do_checks = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.do_checks();});
-  };
-  iController.in.check_acc = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_acc();});
-  };
-  iController.in.check_angacc = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_angacc();});
-  };
-  iController.in.check_str = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_str();});
-  };
-  iController.in.check_pos = [&] () {
-    return dzn::shell(dzn_pump, [ & ] {return controller.iController.in.check_pos();});
-  };
-
-
-  controller.iController.out.what_triggered = std::ref(iController.out.what_triggered);
-
-  controller.iLEDControl.in.initialise_framebuffer = std::ref(iLEDControl.in.initialise_framebuffer);
-  controller.iLEDControl.in.destruct_framebuffer = std::ref(iLEDControl.in.destruct_framebuffer);
-  controller.iLEDControl.in.light_led_red = std::ref(iLEDControl.in.light_led_red);
-  controller.iLEDControl.in.light_led_blue = std::ref(iLEDControl.in.light_led_blue);
-  controller.iLEDControl.in.reset_led = std::ref(iLEDControl.in.reset_led);
-  accelerationControl.iAccelerationSensor.in.retrieve_ke_from_acc = std::ref(iAccelerationSensor.in.retrieve_ke_from_acc);
-  angularAccelerationControl.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = std::ref(iAngularAccelerationSensor.in.retrieve_re_from_ang_acc);
-  gripArmControl.iGripArmSensor.in.retrieve_arm_str = std::ref(iGripArmSensor.in.retrieve_arm_str);
-  gripArmControl.iGripArmSensor.in.retrieve_arm_pos = std::ref(iGripArmSensor.in.retrieve_arm_pos);
 
 
   controller.dzn_meta.parent = &dzn_meta;
@@ -87,9 +43,12 @@ System::System(const dzn::locator& locator)
   gripArmControl.dzn_meta.parent = &dzn_meta;
   gripArmControl.dzn_meta.name = "gripArmControl";
 
+
   connect(accelerationControl.iAccelerationControl, controller.iAccelerationControl);
   connect(angularAccelerationControl.iAngularAccelerationControl, controller.iAngularAccelerationControl);
   connect(gripArmControl.iGripArmControl, controller.iGripArmControl);
+
+  dzn::rank(iController.meta.provides.meta, 0);
 
 }
 
@@ -101,6 +60,8 @@ void System::dump_tree(std::ostream& os) const
 {
   dzn::dump_tree(os, &dzn_meta);
 }
+
+////////////////////////////////////////////////////////////////////////////////
 
 
 

@@ -1,9 +1,7 @@
 #ifndef CONSTANTS_HH
 #define CONSTANTS_HH
 #include <stdint.h>
-
-// real-time operation
-#define REALTIME 0
+#include <pthread.h>
 
 // Read boundary values from CSV file.
 #define CSV_HAS_POSITION 0
@@ -37,13 +35,40 @@
 #define DEV_FB "/dev"
 #define FB_DEV_NAME "fb"
 
+#define XDDP_PORT 0     /* [0..CONFIG-XENO_OPT_PIPE_NRDEV - 1] */
+
+#define NSEC_PER_SEC 1000000000ULL
+
+/*** Structs ***/
 // Framebuffer
 struct fb_t {
 	uint16_t pixel[8][8];
 };
 
-enum LedColor_t {BLUE = 0x0006, GREEN = 0x0300, RED = 0x3000};
+// Arguments for threads
+// Not everything in the struct is needed by every thread, the thread just
+// takes what it needs.
+struct threadargs {
+    // framebuffer mutex pointer.
+    pthread_mutex_t* mutex_fb;
+    int xddp_socket;
+};
 
+// Periodic threads information.
+struct th_info {
+  int period;
+  void (*body)(void* args);
+};
+
+struct periodic_task {
+  struct timespec ts;
+  int period;
+};
+struct periodic_task;
+
+
+/*** enums ***/
+enum LedColor_t {BLUE = 0x0006, GREEN = 0x0300, RED = 0x3000};
 enum ErrorCode_t { OK = 0x00, NOT_OK = 0x01 };
 enum Behavior_t {UNSAFE = false, SAFE = true}; 
 

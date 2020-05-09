@@ -236,6 +236,27 @@ static void *rt_periodic_thread_body(void *arg) {
     return NULL;
 }
 
+static void *nrt_periodic_thread_body(void *arg) {
+    struct periodic_task *ptask;
+    struct th_info* the_thread = (struct th_info*) arg;
+    struct threadargs nrt_args;
+
+    /* ptask = start_periodic_timer(2000000, the_thread->period); */
+    ptask = start_periodic_timer(0, the_thread->period);
+    if (ptask == NULL) {
+        printf("Start Periodic Timer");
+
+        return NULL;
+    }
+
+    while(1) {
+        wait_next_activation(ptask);
+        the_thread->body((void*) &nrt_args);
+    }
+
+    return NULL;
+}
+
 
 static int is_event_device(const struct dirent *dir)
 {
@@ -380,15 +401,6 @@ void realtime_thread(void* arg) {
         fail("recvfrom");
     printf("   => \"%.*s\" echoed by peer\n", ret, buf);
     n = (n + 1) % (sizeof(msg) / sizeof(msg[0]));
-
-    /*
-     * We run in full real-time mode (i.e. primary mode),
-     * so we have to let the system breathe between two
-     * iterations.
-     */
-    /* ts.tv_sec = 0; */
-    /* ts.tv_nsec = 500000000; /1* 500 ms *1/ */
-    /* clock_nanosleep(CLOCK_REALTIME, 0, &ts, NULL); */
 }
 
 static void* regular_thread(void *arg) {
@@ -546,16 +558,14 @@ static inline void timespec_add_us(struct timespec *ts, unsigned long long perio
 }
 
 
-void wait_next_activation(struct periodic_task *ptask)
-{
+void wait_next_activation(struct periodic_task *ptask) {
     // Suspend the thread until the time value specified by &t->ts has elapsed.
     clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &ptask->ts, NULL);
     // Add another period to the time specification.
     timespec_add_us(&ptask->ts, ptask->period);
 }
 
-struct periodic_task *start_periodic_timer(unsigned long long offset_in_us, int period)
-{
+struct periodic_task *start_periodic_timer(unsigned long long offset_in_us, int period) {
     struct periodic_task *ptask;
 
     ptask = (struct periodic_task*) malloc(sizeof(struct periodic_task));

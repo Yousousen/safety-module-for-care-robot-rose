@@ -22,6 +22,8 @@
 #include <dirent.h>
 #include <string.h>
 #include <unistd.h>
+#include <semaphore.h>
+#include <rtdm/ipc.h>
 
 #include <linux/input.h>
 #include <linux/fb.h>
@@ -30,6 +32,11 @@
 #include <dzn/runtime.hh>
 #include <dzn/locator.hh>
 #include "System.hh"
+
+#include <signal.h>
+#include <pthread.h>
+#include <errno.h>
+
 
 #include "constants.hh"
 #include "calculus.hh"
@@ -48,9 +55,6 @@ void initialise_framebuffer();
 void destruct_framebuffer();
 // Light the led matrix in the specified color.
 void light_led(unsigned color);
-// overloads of light_led function
-void light_led_red();
-void light_led_blue();
 // Reset the led matrix to low.
 void reset_led();
 
@@ -85,6 +89,52 @@ void destruct();
 
 void what_triggered(bool acc, bool angacc, bool str, bool pos);
 
+/*** Threads related ***/
+
+// Real-time thread
+// Sends colors to nrt_light_led.
+static void* rt_light_led(void* arg);
+
+// Non-real-time thread, the LED matrix driver.
+// blocks on read to read a color from the XDDP socket, indefinitely.
+static void* nrt_light_led(void *arg);
+
+// Starts a periodic real-time thread.
+static void *rt_periodic_thread_body(void *arg);
+
+// Starts a periodic non-real-time thread.
+static void *nrt_periodic_thread_body(void *arg);
+
+// Start a periodic timer with an offset.
+// the function returns a new periodic task object, with the period set to t.
+struct periodic_task *start_periodic_timer(unsigned long long offset_in_us,
+        int period);
+
+// Wait for next activation of the periodic thread.
+void wait_next_activation(struct periodic_task *ptask);
+
+static void fail(const char *reason);
+
+void dzn_light_led(char* color);
+
+// Add period microseconds to timespec ts.
+static inline void timespec_add_us(struct timespec *ts, unsigned long long period)
+{
+    // (1µs) = 1000 * (1ns)
+    period *= 1000;
+    // Add number of nanoseconds already in ts to period.
+    period += ts->tv_nsec;
+    // To set tv_sec to the correct number we look at how many seconds of
+    // nanoseconds there are in period.
+    while (period >= NSEC_PER_SEC) {
+        period -= NSEC_PER_SEC;
+	ts->tv_sec += 1;
+    }
+    // The nanoseconds left.
+    ts->tv_nsec = period;
+}
+
+
 /*** Global variables ***/
 struct Position* position = nullptr;
 struct Velocity* velocity = nullptr;
@@ -101,23 +151,60 @@ CareRobotRose* rose = nullptr;
 
 // For LED Matrix 
 struct fb_t *fb;
-ErrorCode_t ret = OK;
 int fbfd = 0;
 
+// Semaphores
+sem_t sem_led;
+
+#define SIZE 10
+static char color[SIZE];
+pthread_mutex_t mutex_color;
+
+/* static const char* color_blue = "0x0006"; */
+/* static const char* color_red = "0x3000"; */
 
 auto main() -> int {
     initialise();
-    roll();
+    int r = roll();
+    if (r != OK) return EXIT_FAILURE;
     destruct();
 }
 
 ErrorCode_t roll() {
     // Initialise dezyne locator and runtime.
     IResolver iResolver({});
-    iResolver.in.resolve_ke_from_acc = resolve_ke_from_acc;
-    iResolver.in.resolve_re_from_ang_acc = resolve_re_from_ang_acc;
-    iResolver.in.resolve_arm_str = resolve_arm_str;
-    iResolver.in.resolve_arm_pos = resolve_arm_pos;
+
+    // Bind resolvers
+    iResolver.in.resolve_ke_from_acc = [] () -> Behavior::type {
+        if (kinetic_energy > MAX_KE)
+            return Behavior::type::Unsafe;
+        else
+            return Behavior::type::Safe;
+    };
+
+    iResolver.in.resolve_re_from_ang_acc = [] () -> Behavior::type {
+        if (rotational_energy > MAX_RE)
+            return Behavior::type::Unsafe;
+        else
+            return Behavior::type::Safe;
+    };
+
+    iResolver.in.resolve_arm_str = [] () -> Behavior::type {
+        if (arm_has_payload() && arm_strength > MAX_STR_PAYLOAD)
+            return Behavior::type::Unsafe;
+        else if (arm_strength > MAX_STR)
+            return Behavior::type::Unsafe;
+        else
+            return Behavior::type::Safe;
+    };
+
+    iResolver.in.resolve_arm_pos = [] () -> Behavior::type {
+        if (robot_is_moving() && !arm_is_folded())
+            return Behavior::type::Unsafe;
+        else
+            return Behavior::type::Safe;
+    };
+
 
     dzn::locator locator;
     dzn::runtime runtime;
@@ -133,8 +220,9 @@ ErrorCode_t roll() {
 
     s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
     s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
-    s.iLEDControl.in.light_led_red = light_led_red;
-    s.iLEDControl.in.light_led_blue = light_led_blue;
+    // TODO: needs to be bound to the real-time color sending thread.
+    s.iLEDControl.in.light_led_red = dzn_light_led;
+    s.iLEDControl.in.light_led_blue = dzn_light_led;
     s.iLEDControl.in.reset_led = reset_led;
 
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
@@ -151,21 +239,57 @@ ErrorCode_t roll() {
     // Initialise framebuffer
     s.iController.in.initialise();
 
-    // Run indefinitely unless input is equal to "q".
-#if REALTIME
-    rt_printf("Started running indefinitely.\n");
-#else
+    /*** Threads ***/
+    struct sched_param rtparam = { .sched_priority = 42 };
+    pthread_attr_t rtattr, nrtattr;
+    sigset_t set;
+    int sig;
+    static pthread_t rt, nrt;
+    static struct th_info rt_info;
+    struct threadargs nrt_args;
+
+    sigemptyset(&set);
+    sigaddset(&set, SIGINT);
+    sigaddset(&set, SIGTERM);
+    sigaddset(&set, SIGHUP);
+
+    pthread_attr_init(&nrtattr);
+    pthread_attr_setdetachstate(&nrtattr, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_setinheritsched(&nrtattr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setschedpolicy(&nrtattr, SCHED_OTHER);
+
+    // Initialise mutexes.
+    pthread_mutex_t mutex_fb;
+    if (0 != (errno = pthread_mutex_init(&mutex_fb, NULL))) {
+        perror("pthread_mutex_init() failed");
+        return NOT_OK;
+    }
+    nrt_args.mutex_fb = &mutex_fb;
+
+    if (0 != (errno = pthread_mutex_init(&mutex_color, NULL))) {
+        perror("pthread_mutex_init() failed");
+        return NOT_OK;
+    }
+
+    // Initialise semaphores
+    // params: the semaphore, share between threads, initialise with value 0.
+    sem_init(&sem_led, 0, 0);
+
+    // Start thread rt_light_led
+    errno = pthread_create(&rt, &rtattr, &rt_light_led, NULL);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread nrt_light_led
+    errno = pthread_create(&nrt, &nrtattr, &nrt_light_led, (void*) &nrt_args);
+    if (errno)
+        fail("pthread_create");
+
     printf("Started running indefinitely.\n");
-#endif
     std::string input;
     while (1) {
-#if REALTIME
-        rt_printf("press: q to quit, d to execute all checks, r to reset\n");
-        rt_printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
-#else
         printf("press: q to quit, d to execute all checks, r to reset\n");
         printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
-#endif
         std::cin >> input;
         /* input = "a"; */
         if (input == "q") {
@@ -186,15 +310,33 @@ ErrorCode_t roll() {
             // Purposely here to show illegal exception handler.
             s.iController.in.initialise();
         } else {
-#if REALTIME
-            rt_printf("Did not understand input.\n");
-#else
             printf("Did not understand input.\n");
-#endif
         }
     }
+
     // Destruct framebuffer
     s.iController.in.destruct();
+
+    // Kill threads
+    pthread_cancel(nrt);
+    pthread_cancel(rt);
+    pthread_join(nrt, NULL);
+    pthread_join(rt, NULL);
+
+    // Destroy mutexes
+    if (0 != (errno = pthread_mutex_destroy(&mutex_fb))) {
+        perror("pthread_mutex_destroy() failed");
+        return NOT_OK;
+    }
+    if (0 != (errno = pthread_mutex_destroy(&mutex_color))) {
+        perror("pthread_mutex_destroy() failed");
+        return NOT_OK;
+    }
+
+    // Destroy semaphores
+    sem_destroy(&sem_led); 
+
+    return OK;
 }
 
 
@@ -257,52 +399,29 @@ void light_led(unsigned color) {
     }
 }
 
-void light_led_red() {
-    light_led(LedColor_t::RED);
-}
-
-void light_led_blue() {
-    light_led(LedColor_t::BLUE);
-}
-
 void reset_led() {
     memset(fb, 0, 128);
 }
 
 void initialise_framebuffer() {
+    ErrorCode_t ret = OK;
 
     // Initialise frame buffer for led matrix.
-#if REALTIME
-    rt_printf("Initialising framebuffer...\n");
-#else
     printf("Initialising framebuffer...\n");
-#endif
     fbfd = open_fbdev("RPi-Sense FB");
     if (fbfd <= 0) {
         ret = NOT_OK;
-#if REALTIME
-        rt_printf("Error: cannot open framebuffer device.\n");
-#else
         printf("Error: cannot open framebuffer device.\n");
-#endif
         return;
     }
     fb = (struct fb_t*) mmap(0, 128, PROT_READ | PROT_WRITE, MAP_SHARED, fbfd, 0);
     if (!fb) {
         ret = NOT_OK;
-#if REALTIME
-        rt_printf("Failed to mmap.\n");
-#else
         printf("Failed to mmap.\n");
-#endif
         return;
     }
     memset(fb, 0, 128);
-#if REALTIME
-    rt_printf("Framebuffer initialised.\n");
-#else
     printf("Framebuffer initialised.\n");
-#endif
 }
 
 void destruct_framebuffer() {
@@ -397,11 +516,7 @@ void retrieve_all() {
 }
 
 void sample_acceleration(double* f, const int nsamples) {
-#if REALTIME
-    rt_printf("# rectangles: ");
-#else
     printf("# rectangles: ");
-#endif
     int i;
     for (i = 0; i < nsamples; ++i) {
         retrieve_acceleration();
@@ -409,20 +524,12 @@ void sample_acceleration(double* f, const int nsamples) {
         /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
         std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
     }
-#if REALTIME
-    rt_printf("%d, ", i);
-#else
     printf("%d, ", i);
-#endif
 }
 
 
 void sample_angular_acceleration(double* f, const int nsamples) {
-#if REALTIME
-    rt_printf("# rectangles: ");
-#else
     printf("# rectangles: ");
-#endif
     int i;
     for (i = 0; i < nsamples; ++i) {
         retrieve_angular_acceleration();
@@ -430,11 +537,7 @@ void sample_angular_acceleration(double* f, const int nsamples) {
         /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
         std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
     }
-#if REALTIME
-    rt_printf("%d, ", i);
-#else
     printf("%d, ", i);
-#endif
 }
 
 
@@ -443,42 +546,22 @@ void retrieve_ke_from_acc() {
     const double nseconds = 0.5;
     // numbers of samples.
     const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
-#if REALTIME
-    rt_printf("nsamples: %d\n", nsamples);
-#else
     printf("nsamples: %d\n", nsamples);
-#endif
 
     // Save acceleration in here.
     double a[nsamples];
 
-#if REALTIME
-    rt_printf(">>> sampling acceleration\n\n");
-#else
     printf(">>> sampling acceleration\n\n");
-#endif
     sample_acceleration(a, nsamples);
-#if REALTIME
-    rt_printf("\n<<< done\n\n");
-#else
     printf("\n<<< done\n\n");
-#endif
 
     // Numerical integration
     double velocity = Calculus::trapezoidal_integral(a, nsamples);
-#if REALTIME
-    rt_printf("velocity = %f\n", velocity);
-#else
     printf("velocity = %f\n", velocity);
-#endif
 
     // Calculate kinetic energy
     kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
-#if REALTIME
-    rt_printf("kinetic energy = %f\n", kinetic_energy);
-#else
     printf("kinetic energy = %f\n", kinetic_energy);
-#endif
 }
 
 Behavior::type resolve_ke_from_acc() {
@@ -492,42 +575,22 @@ void retrieve_re_from_ang_acc() {
     const double nseconds = 0.5;
     // numbers of samples.
     const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
-#if REALTIME
-    rt_printf("nsamples: %d\n", nsamples);
-#else
     printf("nsamples: %d\n", nsamples);
-#endif
 
     // Save acceleration in here.
     double a[nsamples];
 
-#if REALTIME
-    rt_printf(">>> sampling angular acceleration\n\n");
-#else
     printf(">>> sampling angular acceleration\n\n");
-#endif
     sample_angular_acceleration(a, nsamples);
-#if REALTIME
-    rt_printf("<<< done\n\n");
-#else
     printf("<<< done\n\n");
-#endif
 
     // Numerical integration
     double angular_velocity = Calculus::trapezoidal_integral(a, nsamples);
-#if REALTIME
-    rt_printf("angular velocity = %f\n", angular_velocity);
-#else
     printf("angular velocity = %f\n", angular_velocity);
-#endif
 
     // Calculate kinetic energy
     rotational_energy = 0.5 * INERTIAL_MASS * angular_velocity * angular_velocity;
-#if REALTIME
-    rt_printf("rotational energy = %f\n", kinetic_energy);
-#else
     printf("rotational energy = %f\n", kinetic_energy);
-#endif
 }
 
 Behavior::type resolve_re_from_ang_acc() {
@@ -537,25 +600,13 @@ Behavior::type resolve_re_from_ang_acc() {
 }
 
 void retrieve_arm_str() {
-#if REALTIME
-    rt_printf(">>> retrieving grip arm strength\n\n");
-#else
     printf(">>> retrieving grip arm strength\n\n");
-#endif
     rose->arm->retrieve_strength();
     arm_strength = rose->arm->current_strength;
     // Unneeded, just for slow output.
     std::this_thread::sleep_for(std::chrono::microseconds(500));
-#if REALTIME
-    rt_printf("Grip arm strength: %f\n", arm_strength);
-#else
     printf("Grip arm strength: %f\n", arm_strength);
-#endif
-#if REALTIME
-    rt_printf("<<< done\n\n");
-#else
     printf("<<< done\n\n");
-#endif
 }
 
 Behavior::type resolve_arm_str() {
@@ -571,25 +622,13 @@ Behavior::type resolve_arm_str() {
 }
 
 void retrieve_arm_pos() {
-#if REALTIME
-    rt_printf(">>> retrieving grip arm position\n\n");
-#else
     printf(">>> retrieving grip arm position\n\n");
-#endif
     rose->arm->retrieve_position();
     arm_position = rose->arm->current_position;
     // Unneeded, just for slow output.
     std::this_thread::sleep_for(std::chrono::microseconds(500));
-#if REALTIME
-    rt_printf("Grip arm position: %d\n", arm_position);
-#else
     printf("Grip arm position: %d\n", arm_position);
-#endif
-#if REALTIME
-    rt_printf("<<< done\n\n");
-#else
     printf("<<< done\n\n");
-#endif
 }
 
 Behavior::type resolve_arm_pos() {
@@ -614,15 +653,6 @@ bool arm_has_payload() {
 
 void what_triggered(bool acc, bool angacc, bool str, bool pos) {
     if (!(acc || angacc || str || pos)) return;
-#if REALTIME
-    rt_printf(">>> what triggered\n\n");
-    rt_printf("Unsafe behavior caused by:\n");
-    if (acc)    rt_printf("acceleration\n");
-    if (angacc) rt_printf("angular acceleration\n");
-    if (str)    rt_printf("arm strength\n");
-    if (pos)    rt_printf("arm position\n");
-    rt_printf("<<<\n\n");
-#else
     printf(">>> what triggered:\n\n");
     printf("Unsafe behavior caused by:\n");
     if (acc)    printf("acceleration\n");
@@ -630,5 +660,216 @@ void what_triggered(bool acc, bool angacc, bool str, bool pos) {
     if (str)    printf("arm strength\n");
     if (pos)    printf("arm position\n");
     printf("<<<\n\n");
-#endif
+}
+
+static void* rt_light_led(void* arg) {
+    int n = 0;
+    int len;
+    int ret;
+    int s;
+    char buf[128];
+    static bool toggle = true;
+    struct sockaddr_ipc saddr;
+    size_t poolsz;
+
+    struct threadargs *args = (struct threadargs *) arg;
+    // Initialise XDDP
+    /*
+     * Get a datagram socket to bind to the RT endpoint. Each
+     * endpoint is represented by a port number within the XDDP
+     * protocol namespace.
+     */
+    s = socket(AF_RTIPC, SOCK_DGRAM, IPCPROTO_XDDP);
+    if (s < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * Set a local 16k pool for the RT endpoint. Memory needed to
+     * convey datagrams will be pulled from this pool, instead of
+     * Xenomai's system pool.
+     */
+    poolsz = 16384; /* bytes */
+    ret = setsockopt(s, SOL_XDDP, XDDP_POOLSZ, &poolsz, sizeof(poolsz));
+    if (ret)
+        fail("setsockopt");
+    /*
+     * Bind the socket to the port, to setup a proxy to channel
+     * traffic to/from the Linux domain.
+     *
+     * saddr.sipc_port specifies the port number to use.
+     */
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sipc_family = AF_RTIPC;
+    saddr.sipc_port = XDDP_PORT;
+    ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
+    if (ret)
+        fail("bind");
+
+    /*
+     * Send a datagram to the NRT endpoint via the proxy.
+     * We may pass a NULL destination address, since a
+     * bound socket is assigned a default destination
+     * address matching the binding address (unless
+     * connect(2) was issued before bind(2), in which case
+     * the former would prevail).
+     */
+    while (1) {
+        sem_wait(&sem_led); 
+        char msg[SIZE];
+
+        // Get color
+        if (0 != (errno = pthread_mutex_lock(&mutex_color))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        strcpy(msg, color);
+
+        // Unlock
+        if (0 != (errno = pthread_mutex_unlock(&mutex_color))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        len = strlen(msg);
+        ret = sendto(s, msg, len, 0, NULL, 0);
+        if (ret != len)
+            fail("sendto");
+        printf("%s: sent %d bytes, \"%.*s\"\n", __FUNCTION__, ret, ret, msg);
+    }
+    return NULL;
+}
+
+static void* nrt_light_led(void *arg) {
+    struct threadargs *args = (struct threadargs *)arg;
+    // Pointer to mutex is passed as an argument.
+    pthread_mutex_t* mutex_fb = args->mutex_fb;
+
+    char buf[128], *devname;
+    int fd, ret;
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT) < 0)
+        fail("asprintf");
+    fd = open(devname, O_RDWR);
+    free(devname);
+    if (fd < 0)
+        fail("open");
+
+    while (1) {
+        /* Get the next message from rt_light_led. */
+        /* read what to color the led buffer in */
+        ret = read(fd, buf, sizeof(buf));
+        if (ret <= 0)
+            fail("read");
+
+        // Convert hex string to int.
+        int color = (int)strtol(buf, NULL, 16);
+
+        // Lock
+        if (0 != (errno = pthread_mutex_lock(mutex_fb))) {
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        // Color the matrix.
+        light_led(color);
+        
+        // Unlock
+        if (0 != (errno = pthread_mutex_unlock(mutex_fb))) {
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    return NULL;
+}
+
+static void *rt_periodic_thread_body(void *arg) {
+    struct periodic_task* ptask;
+    struct th_info* the_thread = (struct th_info*) arg;
+    struct threadargs rt_args;
+
+    /* ptask = start_periodic_timer(2000000, the_thread->period); */
+    ptask = start_periodic_timer(0, the_thread->period);
+    if (ptask == NULL) {
+        printf("Start Periodic Timer");
+
+        return NULL;
+    }
+
+    while(1) {
+        wait_next_activation(ptask);
+        the_thread->body((void*) &rt_args);
+    }
+
+    return NULL;
+}
+
+static void *nrt_periodic_thread_body(void *arg) {
+    struct periodic_task *ptask;
+    struct th_info* the_thread = (struct th_info*) arg;
+    struct threadargs nrt_args;
+
+    /* ptask = start_periodic_timer(2000000, the_thread->period); */
+    ptask = start_periodic_timer(0, the_thread->period);
+    if (ptask == NULL) {
+        printf("Start Periodic Timer");
+
+        return NULL;
+    }
+
+    while(1) {
+        wait_next_activation(ptask);
+        the_thread->body((void*) &nrt_args);
+    }
+
+    return NULL;
+}
+
+static void fail(const char *reason) {
+    perror(reason);
+    exit(EXIT_FAILURE);
+}
+
+struct periodic_task *start_periodic_timer(unsigned long long offset_in_us,
+        int period) {
+    struct periodic_task *ptask;
+
+    ptask = (struct periodic_task*) malloc(sizeof(struct periodic_task));
+    if (ptask == NULL) {
+        return NULL;
+    }
+
+    clock_gettime(CLOCK_REALTIME, &ptask->ts);
+    timespec_add_us(&ptask->ts, offset_in_us);
+    ptask->period = period;
+
+    return ptask;
+}
+
+void wait_next_activation(struct periodic_task *ptask) {
+    // Suspend the thread until the time value specified by &t->ts has elapsed.
+    clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &ptask->ts, NULL);
+    // Add another period to the time specification.
+    timespec_add_us(&ptask->ts, ptask->period);
+}
+
+
+void dzn_light_led(char* color) {
+    // Set color
+    if (0 != (errno = pthread_mutex_lock(&mutex_color))) { // Lock
+        perror("pthread_mutex_lock failed");
+        exit(EXIT_FAILURE);
+    }
+
+    strcpy(::color, color);
+
+    // Unlock
+    if (0 != (errno = pthread_mutex_unlock(&mutex_color))) { // Unlock
+        perror("pthread_mutex_unlock failed");
+        exit(EXIT_FAILURE);
+    }
+    // Let rt_light_led know that it can send a color to nrt_light_led.
+    sem_post(&sem_led);
 }

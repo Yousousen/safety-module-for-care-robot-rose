@@ -69,8 +69,7 @@ void task3(void)
 }
 
 
-static void *thread_body(void *arg)
-{
+static void *thread_body(void *arg) {
     struct periodic_task *ptask;
     struct th_info *the_thread = arg;
 

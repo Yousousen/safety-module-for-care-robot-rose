@@ -3,8 +3,8 @@ import DataTypes.dzn;
 interface ILEDControl {
 	in void initialise_framebuffer();
 	in void destruct_framebuffer();
-	in void light_led_red();
-	in void light_led_blue();
+	in void light_led_red(out color_t red);
+	in void light_led_blue(out color_t blue);
 	in void reset_led();
 
 	behaviour {

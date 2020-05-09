@@ -92,8 +92,8 @@ struct ILEDControl
   {
     std::function< void()> initialise_framebuffer;
     std::function< void()> destruct_framebuffer;
-    std::function< void()> light_led_red;
-    std::function< void()> light_led_blue;
+    std::function< void(char*&)> light_led_red;
+    std::function< void(char*&)> light_led_blue;
     std::function< void()> reset_led;
   } in;
 

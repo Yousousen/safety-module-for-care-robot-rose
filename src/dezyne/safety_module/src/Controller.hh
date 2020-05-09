@@ -234,6 +234,8 @@ struct Controller
   bool angacc_triggered;
   bool str_triggered;
   bool pos_triggered;
+  char* red;
+  char* blue;
 
   ::UnsafeTriggered::type reply_UnsafeTriggered;
   ::Behavior::type reply_Behavior;
@@ -253,7 +255,7 @@ struct Controller
   void dump_tree(std::ostream& os) const;
   friend std::ostream& operator << (std::ostream& os, const Controller& m)  {
     (void)m;
-    return os << "[" << m.systemState <<", " << m.unsafe_acknowledged <<", " << m.acc_triggered <<", " << m.angacc_triggered <<", " << m.str_triggered <<", " << m.pos_triggered <<"]" ;
+    return os << "[" << m.systemState <<", " << m.unsafe_acknowledged <<", " << m.acc_triggered <<", " << m.angacc_triggered <<", " << m.str_triggered <<", " << m.pos_triggered <<", " << m.red <<", " << m.blue <<"]" ;
   }
   private:
   void iController_initialise();
