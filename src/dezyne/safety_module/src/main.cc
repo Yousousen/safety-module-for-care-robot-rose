@@ -61,10 +61,13 @@ void reset_led();
 /*** data retrieval functions ***/
 void retrieve_position();
 void retrieve_velocity();
-void retrieve_acceleration();
+double retrieve_acceleration();
 void retrieve_angular_velocity();
 void retrieve_angular_acceleration();
 void retrieve_all();
+
+/*** data set functions ***/
+void set_acceleration(double acceleration);
 
 bool robot_is_moving();
 bool arm_is_folded();
@@ -91,19 +94,30 @@ void what_triggered(bool acc, bool angacc, bool str, bool pos);
 
 /*** Threads related ***/
 
-// Real-time thread
+/** Real-time threads **/
 // Sends colors to nrt_light_led.
 static void* rt_light_led(void* arg);
 
-// Non-real-time thread, the LED matrix driver.
-// blocks on read to read a color from the XDDP socket, indefinitely.
-static void* nrt_light_led(void *arg);
+// sets the acceleration, retrieves acceleration from
+// nrt_retrieve_acceleration.
+static void* rt_retrieve_acceleration(void* arg);
 
 // Starts a periodic real-time thread.
 static void *rt_periodic_thread_body(void *arg);
 
+
+/** Non-real-time threads **/
+// The LED matrix driver.
+// blocks on read to read a color from the XDDP socket, indefinitely.
+static void* nrt_light_led(void *arg);
+
+// The acceleration driver.
+// sends current acceleration over XDDP socket to rt_retrieve_acceleration.
+static void* nrt_retrieve_acceleration(void *arg);
+
 // Starts a periodic non-real-time thread.
 static void *nrt_periodic_thread_body(void *arg);
+
 
 // Start a periodic timer with an offset.
 // the function returns a new periodic task object, with the period set to t.
@@ -155,10 +169,19 @@ int fbfd = 0;
 
 // Semaphores
 sem_t sem_led;
+sem_t sem_ret_acc;
+sem_t sem_ret_angacc;
+sem_t sem_ret_str;
+sem_t sem_ret_pos;
 
-#define SIZE 10
-static char color[SIZE];
+// Mutexes
 pthread_mutex_t mutex_color;
+pthread_mutex_t mutex_acc;
+pthread_mutex_t mutex_angacc;
+pthread_mutex_t mutex_str;
+pthread_mutex_t mutex_pos;
+
+static char color[SIZE];
 
 /* static const char* color_blue = "0x0006"; */
 /* static const char* color_red = "0x3000"; */
@@ -220,7 +243,6 @@ ErrorCode_t roll() {
 
     s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
     s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
-    // TODO: needs to be bound to the real-time color sending thread.
     s.iLEDControl.in.light_led_red = dzn_light_led;
     s.iLEDControl.in.light_led_blue = dzn_light_led;
     s.iLEDControl.in.reset_led = reset_led;
@@ -244,9 +266,10 @@ ErrorCode_t roll() {
     pthread_attr_t rtattr, nrtattr;
     sigset_t set;
     int sig;
-    static pthread_t rt, nrt;
+    static pthread_t th_rt_light_led, th_rt_ret_acc;
+    static pthread_t th_nrt_light_led, th_nrt_ret_acc;
     static struct th_info rt_info;
-    struct threadargs nrt_args;
+    struct threadargs thread_args;
 
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
@@ -257,6 +280,7 @@ ErrorCode_t roll() {
     pthread_attr_setdetachstate(&nrtattr, PTHREAD_CREATE_JOINABLE);
     pthread_attr_setinheritsched(&nrtattr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setschedpolicy(&nrtattr, SCHED_OTHER);
+    pthread_attr_setschedparam(&rtattr, &rtparam);
 
     // Initialise mutexes.
     pthread_mutex_t mutex_fb;
@@ -264,24 +288,60 @@ ErrorCode_t roll() {
         perror("pthread_mutex_init() failed");
         return NOT_OK;
     }
-    nrt_args.mutex_fb = &mutex_fb;
+    thread_args.mutex_fb = &mutex_fb;
 
     if (0 != (errno = pthread_mutex_init(&mutex_color, NULL))) {
         perror("pthread_mutex_init() failed");
         return NOT_OK;
     }
+    thread_args.mutex_color = &mutex_color;
+
+    if (0 != (errno = pthread_mutex_init(&mutex_acc, NULL))) {
+        perror("pthread_mutex_init() failed");
+        return NOT_OK;
+    }
+    thread_args.mutex_acc = &mutex_acc;
+
+    if (0 != (errno = pthread_mutex_init(&mutex_angacc, NULL))) {
+        perror("pthread_mutex_init() failed");
+        return NOT_OK;
+    }
+    thread_args.mutex_angacc = &mutex_angacc;
+
+    if (0 != (errno = pthread_mutex_init(&mutex_str, NULL))) {
+        perror("pthread_mutex_init() failed");
+        return NOT_OK;
+    }
+    thread_args.mutex_str = &mutex_str;
+
+    if (0 != (errno = pthread_mutex_init(&mutex_pos, NULL))) {
+        perror("pthread_mutex_init() failed");
+        return NOT_OK;
+    }
+    thread_args.mutex_pos = &mutex_pos;
 
     // Initialise semaphores
     // params: the semaphore, share between threads, initialise with value 0.
     sem_init(&sem_led, 0, 0);
+    sem_init(&sem_ret_acc, 0, 0);
 
     // Start thread rt_light_led
-    errno = pthread_create(&rt, &rtattr, &rt_light_led, NULL);
+    errno = pthread_create(&th_rt_light_led, &rtattr, &rt_light_led, NULL);
     if (errno)
         fail("pthread_create");
 
     // Start thread nrt_light_led
-    errno = pthread_create(&nrt, &nrtattr, &nrt_light_led, (void*) &nrt_args);
+    errno = pthread_create(&th_nrt_light_led, &nrtattr, &nrt_light_led, (void*) &thread_args);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread rt_retrieve_acceleration
+    errno = pthread_create(&th_rt_ret_acc, &rtattr, &rt_retrieve_acceleration, &thread_args);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread nrt_retrieve_acceleration
+    errno = pthread_create(&th_nrt_ret_acc, &nrtattr, &nrt_retrieve_acceleration, NULL);
     if (errno)
         fail("pthread_create");
 
@@ -290,6 +350,10 @@ ErrorCode_t roll() {
     while (1) {
         printf("press: q to quit, d to execute all checks, r to reset\n");
         printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
+
+        // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
+        sem_post(&sem_ret_acc);
+
         std::cin >> input;
         /* input = "a"; */
         if (input == "q") {
@@ -313,28 +377,56 @@ ErrorCode_t roll() {
             printf("Did not understand input.\n");
         }
     }
+    printf("Stopping\n");
 
     // Destruct framebuffer
     s.iController.in.destruct();
 
     // Kill threads
-    pthread_cancel(nrt);
-    pthread_cancel(rt);
-    pthread_join(nrt, NULL);
-    pthread_join(rt, NULL);
+    pthread_cancel(th_nrt_light_led);
+    pthread_cancel(th_nrt_ret_acc);
+    pthread_cancel(th_rt_light_led);
+    pthread_cancel(th_rt_ret_acc);
+
+    pthread_join(th_nrt_light_led, NULL);
+    pthread_join(th_nrt_ret_acc, NULL);
+    pthread_join(th_rt_light_led, NULL);
+    pthread_join(th_rt_ret_acc, NULL);
 
     // Destroy mutexes
     if (0 != (errno = pthread_mutex_destroy(&mutex_fb))) {
         perror("pthread_mutex_destroy() failed");
         return NOT_OK;
     }
+
     if (0 != (errno = pthread_mutex_destroy(&mutex_color))) {
+        perror("pthread_mutex_destroy() failed");
+        return NOT_OK;
+    }
+
+    if (0 != (errno = pthread_mutex_destroy(&mutex_acc))) {
+        perror("pthread_mutex_destroy() failed");
+        return NOT_OK;
+    }
+
+    if (0 != (errno = pthread_mutex_destroy(&mutex_angacc))) {
+        perror("pthread_mutex_destroy() failed");
+        return NOT_OK;
+    }
+
+    if (0 != (errno = pthread_mutex_destroy(&mutex_str))) {
+        perror("pthread_mutex_destroy() failed");
+        return NOT_OK;
+    }
+
+    if (0 != (errno = pthread_mutex_destroy(&mutex_pos))) {
         perror("pthread_mutex_destroy() failed");
         return NOT_OK;
     }
 
     // Destroy semaphores
     sem_destroy(&sem_led); 
+    sem_destroy(&sem_ret_acc); 
 
     return OK;
 }
@@ -484,11 +576,15 @@ void retrieve_velocity() {
     velocity->change = velocity->current - previous;
 }
 
-void retrieve_acceleration() {
-    auto previous = acceleration->current;
+double retrieve_acceleration() {
     srand((unsigned)time(NULL));
-    acceleration->current = rand() % 5 + 1;
-    acceleration->change = acceleration->current - previous;
+    return rand() % 5 + 1;
+}
+
+void set_acceleration(double acceleration) {
+    auto previous = ::acceleration->current;
+    ::acceleration->current = acceleration;
+    ::acceleration->change = ::acceleration->current - previous;
 }
 
 void retrieve_angular_velocity() {
@@ -519,8 +615,20 @@ void sample_acceleration(double* f, const int nsamples) {
     printf("# rectangles: ");
     int i;
     for (i = 0; i < nsamples; ++i) {
-        retrieve_acceleration();
+        // Get acceleration
+        if (0 != (errno = pthread_mutex_lock(&mutex_acc))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
         f[i] = acceleration->current;
+
+        // Unlock
+        if (0 != (errno = pthread_mutex_unlock(&mutex_acc))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+
         /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
         std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
     }
@@ -564,12 +672,6 @@ void retrieve_ke_from_acc() {
     printf("kinetic energy = %f\n", kinetic_energy);
 }
 
-Behavior::type resolve_ke_from_acc() {
-    Behavior::type behavior = (kinetic_energy > MAX_KE) ? Behavior::type::Unsafe :
-        Behavior::type::Safe;
-    return behavior;
-}
-
 void retrieve_re_from_ang_acc() {
     // numbers of seconds to sample.
     const double nseconds = 0.5;
@@ -593,12 +695,6 @@ void retrieve_re_from_ang_acc() {
     printf("rotational energy = %f\n", kinetic_energy);
 }
 
-Behavior::type resolve_re_from_ang_acc() {
-    Behavior::type behavior = (rotational_energy > MAX_RE) ?
-        Behavior::type::Unsafe : Behavior::type::Safe;
-    return behavior;
-}
-
 void retrieve_arm_str() {
     printf(">>> retrieving grip arm strength\n\n");
     rose->arm->retrieve_strength();
@@ -607,18 +703,6 @@ void retrieve_arm_str() {
     std::this_thread::sleep_for(std::chrono::microseconds(500));
     printf("Grip arm strength: %f\n", arm_strength);
     printf("<<< done\n\n");
-}
-
-Behavior::type resolve_arm_str() {
-    Behavior::type btype;
-    if (arm_has_payload()) {
-        btype = ((arm_strength > MAX_STR_PAYLOAD) ?
-                Behavior::type::Unsafe : Behavior::type::Safe);
-    } else {
-        btype = ((arm_strength > MAX_STR) ?
-                Behavior::type::Unsafe : Behavior::type::Safe);
-    }
-    return btype;
 }
 
 void retrieve_arm_pos() {
@@ -630,14 +714,6 @@ void retrieve_arm_pos() {
     printf("Grip arm position: %d\n", arm_position);
     printf("<<< done\n\n");
 }
-
-Behavior::type resolve_arm_pos() {
-    bool moving = robot_is_moving();
-    bool folded = arm_is_folded();
-    if (moving && !folded) return Behavior::type::Unsafe;
-    return Behavior::type::Safe;
-}
-
 
 bool robot_is_moving() {
     return (velocity->current == 0 || rose->velocity->current == 0) ? false : true;
@@ -668,7 +744,6 @@ static void* rt_light_led(void* arg) {
     int ret;
     int s;
     char buf[128];
-    static bool toggle = true;
     struct sockaddr_ipc saddr;
     size_t poolsz;
 
@@ -702,7 +777,7 @@ static void* rt_light_led(void* arg) {
      */
     memset(&saddr, 0, sizeof(saddr));
     saddr.sipc_family = AF_RTIPC;
-    saddr.sipc_port = XDDP_PORT;
+    saddr.sipc_port = XDDP_PORT_LIGHT_LED;
     ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
     if (ret)
         fail("bind");
@@ -716,6 +791,7 @@ static void* rt_light_led(void* arg) {
      * the former would prevail).
      */
     while (1) {
+        // Wait for an up to send a color to the LED matrix.
         sem_wait(&sem_led); 
         char msg[SIZE];
 
@@ -749,7 +825,7 @@ static void* nrt_light_led(void *arg) {
 
     char buf[128], *devname;
     int fd, ret;
-    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT) < 0)
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_LIGHT_LED) < 0)
         fail("asprintf");
     fd = open(devname, O_RDWR);
     free(devname);
@@ -785,6 +861,118 @@ static void* nrt_light_led(void *arg) {
     return NULL;
 }
 
+static void* rt_retrieve_acceleration(void* arg) {
+    int n = 0;
+    int len;
+    int ret;
+    int s;
+    char buf[BUFSIZE];
+    struct sockaddr_ipc saddr;
+    size_t poolsz;
+
+    struct threadargs *args = (struct threadargs *)arg;
+    // Pointer to mutex is passed as an argument.
+    pthread_mutex_t* mutex_acc = args->mutex_acc;
+
+    // Initialise XDDP
+    /*
+     * Get a datagram socket to bind to the RT endpoint. Each
+     * endpoint is represented by a port number within the XDDP
+     * protocol namespace.
+     */
+    s = socket(AF_RTIPC, SOCK_DGRAM, IPCPROTO_XDDP);
+    if (s < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * Set a local 16k pool for the RT endpoint. Memory needed to
+     * convey datagrams will be pulled from this pool, instead of
+     * Xenomai's system pool.
+     */
+    poolsz = 16384; /* bytes */
+    ret = setsockopt(s, SOL_XDDP, XDDP_POOLSZ, &poolsz, sizeof(poolsz));
+    if (ret)
+        fail("setsockopt");
+    /*
+     * Bind the socket to the port, to setup a proxy to channel
+     * traffic to/from the Linux domain.
+     *
+     * saddr.sipc_port specifies the port number to use.
+     */
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sipc_family = AF_RTIPC;
+    saddr.sipc_port = XDDP_PORT_RET_ACC;
+    ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
+    if (ret)
+        fail("bind");
+
+    /*
+     * Send a datagram to the NRT endpoint via the proxy.
+     * We may pass a NULL destination address, since a
+     * bound socket is assigned a default destination
+     * address matching the binding address (unless
+     * connect(2) was issued before bind(2), in which case
+     * the former would prevail).
+     */
+    while (1) {
+        /* Read packets echoed by the non-real-time thread */
+        ret = recvfrom(s, buf, sizeof(buf), 0, NULL, 0);
+        if (ret <= 0)
+            fail("recvfrom");
+        printf("   => \"%.*s\" received by peer\n", ret, buf);
+        n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
+
+        // Set acceleration
+        if (0 != (errno = pthread_mutex_lock(mutex_acc))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        set_acceleration(atof(buf));
+
+        // Unlock
+        if (0 != (errno = pthread_mutex_unlock(mutex_acc))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+    }
+    return NULL;
+}
+
+static void* nrt_retrieve_acceleration(void *arg) {
+    /* struct threadargs *args = (struct threadargs *)arg; */
+    // Pointer to mutex is passed as an argument.
+    /* pthread_mutex_t* mutex_acc = args->mutex_acc; */
+
+    char buf[BUFSIZE], *devname;
+    int fd, ret;
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_ACC) < 0)
+        fail("asprintf");
+    fd = open(devname, O_RDWR);
+    free(devname);
+    if (fd < 0)
+        fail("open");
+
+    while (1) {
+        // Wait for an up before retrieving acceleration from the sense hat
+        // driver.
+        sem_wait(&sem_ret_acc);
+
+        // Retrieve acceleration
+        double acc = retrieve_acceleration();
+        snprintf(buf, BUFSIZE, "%f", acc);
+
+        /* Write retrieved acceleration to rt_retrieve_acceleration. */
+        ret = write(fd, buf, BUFSIZE);
+        if (ret <= 0)
+            fail("write");
+    }
+
+    return NULL;
+}
+
 static void *rt_periodic_thread_body(void *arg) {
     struct periodic_task* ptask;
     struct th_info* the_thread = (struct th_info*) arg;
@@ -809,7 +997,7 @@ static void *rt_periodic_thread_body(void *arg) {
 static void *nrt_periodic_thread_body(void *arg) {
     struct periodic_task *ptask;
     struct th_info* the_thread = (struct th_info*) arg;
-    struct threadargs nrt_args;
+    struct threadargs thread_args;
 
     /* ptask = start_periodic_timer(2000000, the_thread->period); */
     ptask = start_periodic_timer(0, the_thread->period);
@@ -821,7 +1009,7 @@ static void *nrt_periodic_thread_body(void *arg) {
 
     while(1) {
         wait_next_activation(ptask);
-        the_thread->body((void*) &nrt_args);
+        the_thread->body((void*) &thread_args);
     }
 
     return NULL;

@@ -35,9 +35,16 @@
 #define DEV_FB "/dev"
 #define FB_DEV_NAME "fb"
 
-#define XDDP_PORT 0     /* [0..CONFIG-XENO_OPT_PIPE_NRDEV - 1] */
+#define XDDP_PORT_LIGHT_LED 0
+#define XDDP_PORT_RET_ACC 1
+#define XDDP_PORT_RET_ANGACC 2
+#define XDDP_PORT_RET_STR 3
+#define XDDP_PORT_RET_POS 4
 
 #define NSEC_PER_SEC 1000000000ULL
+
+#define SIZE 10
+#define BUFSIZE 128
 
 /*** Structs ***/
 // Framebuffer
@@ -45,12 +52,25 @@ struct fb_t {
 	uint16_t pixel[8][8];
 };
 
+// TODO: Is this any better than a global variable?
+// Remember that if I change this I should take into account the fact that if I
+// pass a pointer in a function I do not need &, and if I don't I need & for
+// things like sem_wait.
 // Arguments for threads
 // Not everything in the struct is needed by every thread, the thread just
 // takes what it needs.
 struct threadargs {
     // framebuffer mutex pointer.
     pthread_mutex_t* mutex_fb;
+    pthread_mutex_t* mutex_color;
+    pthread_mutex_t* mutex_acc;
+    pthread_mutex_t* mutex_angacc;
+    pthread_mutex_t* mutex_str;
+    pthread_mutex_t* mutex_pos;
+    pthread_mutex_t* mutex_kinetic_energy;
+    pthread_mutex_t* mutex_rotational_energy;
+    pthread_mutex_t* mutex_arm_strength;
+    pthread_mutex_t* mutex_arm_position;
     int xddp_socket;
 };
 
