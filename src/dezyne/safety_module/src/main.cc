@@ -180,6 +180,10 @@ pthread_mutex_t mutex_acc;
 pthread_mutex_t mutex_angacc;
 pthread_mutex_t mutex_str;
 pthread_mutex_t mutex_pos;
+pthread_mutex_t mutex_kinetic_energy;
+pthread_mutex_t mutex_rotational_energy;
+pthread_mutex_t mutex_arm_strength;
+pthread_mutex_t mutex_arm_position;
 
 static char color[SIZE];
 
@@ -324,6 +328,9 @@ ErrorCode_t roll() {
     // params: the semaphore, share between threads, initialise with value 0.
     sem_init(&sem_led, 0, 0);
     sem_init(&sem_ret_acc, 0, 0);
+    sem_init(&sem_ret_angacc, 0, 0); 
+    sem_init(&sem_ret_str, 0, 0); 
+    sem_init(&sem_ret_pos, 0, 0); 
 
     // Start thread rt_light_led
     errno = pthread_create(&th_rt_light_led, &rtattr, &rt_light_led, NULL);
@@ -427,6 +434,9 @@ ErrorCode_t roll() {
     // Destroy semaphores
     sem_destroy(&sem_led); 
     sem_destroy(&sem_ret_acc); 
+    sem_destroy(&sem_ret_angacc); 
+    sem_destroy(&sem_ret_str); 
+    sem_destroy(&sem_ret_pos); 
 
     return OK;
 }
@@ -668,8 +678,18 @@ void retrieve_ke_from_acc() {
     printf("velocity = %f\n", velocity);
 
     // Calculate kinetic energy
+    if (0 != (errno = pthread_mutex_lock(&mutex_kinetic_energy))) { // Lock
+        perror("pthread_mutex_lock failed");
+        exit(EXIT_FAILURE);
+    }
+
     kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
     printf("kinetic energy = %f\n", kinetic_energy);
+
+    if (0 != (errno = pthread_mutex_unlock(&mutex_kinetic_energy))) { // Unlock
+        perror("pthread_mutex_unlock failed");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void retrieve_re_from_ang_acc() {
@@ -692,7 +712,7 @@ void retrieve_re_from_ang_acc() {
 
     // Calculate kinetic energy
     rotational_energy = 0.5 * INERTIAL_MASS * angular_velocity * angular_velocity;
-    printf("rotational energy = %f\n", kinetic_energy);
+    printf("rotational energy = %f\n", rotational_energy);
 }
 
 void retrieve_arm_str() {
