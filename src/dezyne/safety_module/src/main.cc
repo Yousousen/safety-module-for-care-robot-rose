@@ -202,10 +202,97 @@ ErrorCode_t roll() {
     IResolver iResolver({});
 
     // Bind resolvers
-    iResolver.in.resolve_ke_from_acc = resolve_ke_from_acc;
-    iResolver.in.resolve_re_from_ang_acc = resolve_re_from_ang_acc;
-    iResolver.in.resolve_arm_str = resolve_arm_str;
-    iResolver.in.resolve_arm_pos = resolve_arm_pos;
+
+    iResolver.in.resolve_ke_from_acc = []() -> Behavior::type {
+        Behavior::type type;
+        double ke;
+
+        if (0 != (errno = pthread_mutex_lock(&mutex_kinetic_energy))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        ke = kinetic_energy;
+
+        if (0 != (errno = pthread_mutex_unlock(&mutex_kinetic_energy))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        if (ke > MAX_KE)
+            type = Behavior::type::Unsafe;
+        else
+            type = Behavior::type::Safe;
+        return type;
+    };
+
+    iResolver.in.resolve_re_from_ang_acc = []() -> Behavior::type {
+        Behavior::type type;
+        double re;
+
+        if (0 != (errno = pthread_mutex_lock(&mutex_rotational_energy))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        re = rotational_energy;
+
+        if (0 != (errno = pthread_mutex_unlock(&mutex_rotational_energy))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        if (re > MAX_RE)
+            type =  Behavior::type::Unsafe;
+        else
+            type =  Behavior::type::Safe;
+        return type;
+    };
+
+    iResolver.in.resolve_arm_str = []() -> Behavior::type {
+        Behavior::type type;
+        double str;
+
+        if (0 != (errno = pthread_mutex_lock(&mutex_arm_strength))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        str = arm_strength;
+
+        if (0 != (errno = pthread_mutex_unlock(&mutex_arm_strength))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        if (arm_has_payload() && str > MAX_STR_PAYLOAD)
+            type = Behavior::type::Unsafe;
+        else if (str > MAX_STR)
+            type = Behavior::type::Unsafe;
+        else
+            type = Behavior::type::Safe;
+        return type;
+    };
+
+    iResolver.in.resolve_arm_pos = []() -> Behavior::type {
+        Behavior::type type;
+
+        if (0 != (errno = pthread_mutex_lock(&mutex_arm_position))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        if (robot_is_moving() && !arm_is_folded())
+            type = Behavior::type::Unsafe;
+        else
+            type = Behavior::type::Safe;
+
+        if (0 != (errno = pthread_mutex_unlock(&mutex_arm_position))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+        return type;
+    };
 
     dzn::locator locator;
     dzn::runtime runtime;
@@ -844,7 +931,7 @@ static void* nrt_light_led(void *arg) {
 
         // Color the matrix.
         light_led(color);
-        
+
         // Unlock
         if (0 != (errno = pthread_mutex_unlock(mutex_fb))) {
             perror("pthread_mutex_unlock failed");
@@ -1056,93 +1143,3 @@ void dzn_light_led(char* color) {
     sem_post(&sem_led);
 }
 
-Behavior::type resolve_ke_from_acc() {
-    Behavior::type type;
-    double ke;
-
-    if (0 != (errno = pthread_mutex_lock(&mutex_kinetic_energy))) { // Lock
-        perror("pthread_mutex_lock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    ke = kinetic_energy;
-
-    if (0 != (errno = pthread_mutex_unlock(&mutex_kinetic_energy))) { // Unlock
-        perror("pthread_mutex_unlock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (ke > MAX_KE)
-        type = Behavior::type::Unsafe;
-    else
-        type = Behavior::type::Safe;
-    return type;
-}
-
-Behavior::type resolve_re_from_ang_acc() {
-    Behavior::type type;
-    double re;
-
-    if (0 != (errno = pthread_mutex_lock(&mutex_rotational_energy))) { // Lock
-        perror("pthread_mutex_lock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    re = rotational_energy;
-
-    if (0 != (errno = pthread_mutex_unlock(&mutex_rotational_energy))) { // Unlock
-        perror("pthread_mutex_unlock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (re > MAX_RE)
-        type =  Behavior::type::Unsafe;
-    else
-        type =  Behavior::type::Safe;
-    return type;
-}
-
-Behavior::type resolve_arm_str() {
-    Behavior::type type;
-    double str;
-
-    if (0 != (errno = pthread_mutex_lock(&mutex_arm_strength))) { // Lock
-        perror("pthread_mutex_lock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    str = arm_strength;
-
-    if (0 != (errno = pthread_mutex_unlock(&mutex_arm_strength))) { // Unlock
-        perror("pthread_mutex_unlock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (arm_has_payload() && str > MAX_STR_PAYLOAD)
-        type = Behavior::type::Unsafe;
-    else if (str > MAX_STR)
-        type = Behavior::type::Unsafe;
-    else
-        type = Behavior::type::Safe;
-    return type;
-}
-
-Behavior::type resolve_arm_pos() {
-    Behavior::type type;
-
-    if (0 != (errno = pthread_mutex_lock(&mutex_arm_position))) { // Lock
-        perror("pthread_mutex_lock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    if (robot_is_moving() && !arm_is_folded())
-        type = Behavior::type::Unsafe;
-    else
-        type = Behavior::type::Safe;
-
-    if (0 != (errno = pthread_mutex_unlock(&mutex_arm_position))) { // Unlock
-        perror("pthread_mutex_unlock failed");
-        exit(EXIT_FAILURE);
-    }
-    return type;
-}
