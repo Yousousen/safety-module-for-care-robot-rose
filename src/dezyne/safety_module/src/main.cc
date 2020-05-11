@@ -98,9 +98,19 @@ void what_triggered(bool acc, bool angacc, bool str, bool pos);
 // Sends colors to nrt_light_led.
 static void* rt_light_led(void* arg);
 
+
 // sets the acceleration, retrieves acceleration from
 // nrt_retrieve_acceleration.
 static void* rt_retrieve_acceleration(void* arg);
+
+
+// thread to sample acceleration continuously.
+// Currently does the following (TODO: probably split):
+// - set number of samples
+// - samples acceleration
+// - ∫ a dt
+// - calculates KE
+static void* rt_sample_acceleration(void* arg);
 
 // Starts a periodic real-time thread.
 static void *rt_periodic_thread_body(void *arg);
@@ -173,6 +183,7 @@ sem_t sem_ret_acc;
 sem_t sem_ret_angacc;
 sem_t sem_ret_str;
 sem_t sem_ret_pos;
+sem_t sem_sample_acc;
 
 // Mutexes
 pthread_mutex_t mutex_color;
@@ -202,7 +213,6 @@ ErrorCode_t roll() {
     IResolver iResolver({});
 
     // Bind resolvers
-
     iResolver.in.resolve_ke_from_acc = []() -> Behavior::type {
         Behavior::type type;
         double ke;
@@ -331,7 +341,7 @@ ErrorCode_t roll() {
     pthread_attr_t rtattr, nrtattr;
     sigset_t set;
     int sig;
-    static pthread_t th_rt_light_led, th_rt_ret_acc;
+    static pthread_t th_rt_light_led, th_rt_ret_acc, th_rt_sample_acc;
     static pthread_t th_nrt_light_led, th_nrt_ret_acc;
     static struct th_info rt_info;
     struct threadargs thread_args;
@@ -346,6 +356,16 @@ ErrorCode_t roll() {
     pthread_attr_setinheritsched(&nrtattr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setschedpolicy(&nrtattr, SCHED_OTHER);
     pthread_attr_setschedparam(&rtattr, &rtparam);
+
+    // Initialise semaphores
+    // params: the semaphore, share between threads, initialise with value 0.
+    sem_init(&sem_led, 0, 0);
+    sem_init(&sem_ret_acc, 0, 0);
+    sem_init(&sem_ret_angacc, 0, 0); 
+    sem_init(&sem_ret_str, 0, 0); 
+    sem_init(&sem_ret_pos, 0, 0); 
+    sem_init(&sem_sample_acc, 0, 0); 
+
 
     // Initialise mutexes.
     pthread_mutex_t mutex_fb;
@@ -385,14 +405,7 @@ ErrorCode_t roll() {
     }
     thread_args.mutex_pos = &mutex_pos;
 
-    // Initialise semaphores
-    // params: the semaphore, share between threads, initialise with value 0.
-    sem_init(&sem_led, 0, 0);
-    sem_init(&sem_ret_acc, 0, 0);
-    sem_init(&sem_ret_angacc, 0, 0); 
-    sem_init(&sem_ret_str, 0, 0); 
-    sem_init(&sem_ret_pos, 0, 0); 
-
+    /*** Start threads ***/
     // Start thread rt_light_led
     errno = pthread_create(&th_rt_light_led, &rtattr, &rt_light_led, NULL);
     if (errno)
@@ -413,6 +426,12 @@ ErrorCode_t roll() {
     if (errno)
         fail("pthread_create");
 
+    // Start thread rt_sample_acceleration
+    errno = pthread_create(&th_rt_sample_acc, &rtattr, &rt_sample_acceleration,
+            &thread_args);
+    if (errno)
+        fail("pthread_create");
+
     printf("Started running indefinitely.\n");
     std::string input;
     while (1) {
@@ -421,6 +440,8 @@ ErrorCode_t roll() {
 
         // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
         sem_post(&sem_ret_acc);
+        // Notify rt_sample_acceleration that it can go sample acceleration.
+        /* sem_post(&sem_sample_acc); */
 
         std::cin >> input;
         /* input = "a"; */
@@ -455,11 +476,13 @@ ErrorCode_t roll() {
     pthread_cancel(th_nrt_ret_acc);
     pthread_cancel(th_rt_light_led);
     pthread_cancel(th_rt_ret_acc);
+    pthread_cancel(th_rt_sample_acc);
 
     pthread_join(th_nrt_light_led, NULL);
     pthread_join(th_nrt_ret_acc, NULL);
     pthread_join(th_rt_light_led, NULL);
     pthread_join(th_rt_ret_acc, NULL);
+    pthread_join(th_rt_sample_acc, NULL);
 
     // Destroy mutexes
     if (0 != (errno = pthread_mutex_destroy(&mutex_fb))) {
@@ -498,6 +521,7 @@ ErrorCode_t roll() {
     sem_destroy(&sem_ret_angacc); 
     sem_destroy(&sem_ret_str); 
     sem_destroy(&sem_ret_pos); 
+    sem_destroy(&sem_sample_acc); 
 
     return OK;
 }
@@ -721,36 +745,8 @@ void sample_angular_acceleration(double* f, const int nsamples) {
 
 
 void retrieve_ke_from_acc() {
-    // numbers of seconds to sample.
-    const double nseconds = 0.5;
-    // numbers of samples.
-    const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
-    printf("nsamples: %d\n", nsamples);
-
-    // Save acceleration in here.
-    double a[nsamples];
-
-    printf(">>> sampling acceleration\n\n");
-    sample_acceleration(a, nsamples);
-    printf("\n<<< done\n\n");
-
-    // Numerical integration
-    double velocity = Calculus::trapezoidal_integral(a, nsamples);
-    printf("velocity = %f\n", velocity);
-
-    // Calculate kinetic energy
-    if (0 != (errno = pthread_mutex_lock(&mutex_kinetic_energy))) { // Lock
-        perror("pthread_mutex_lock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
-    printf("kinetic energy = %f\n", kinetic_energy);
-
-    if (0 != (errno = pthread_mutex_unlock(&mutex_kinetic_energy))) { // Unlock
-        perror("pthread_mutex_unlock failed");
-        exit(EXIT_FAILURE);
-    }
+    // Currently rt_sample_acceleration sets kinetic energy, so wee need not do
+    // anything here.
 }
 
 void retrieve_re_from_ang_acc() {
@@ -1002,7 +998,7 @@ static void* rt_retrieve_acceleration(void* arg) {
         ret = recvfrom(s, buf, sizeof(buf), 0, NULL, 0);
         if (ret <= 0)
             fail("recvfrom");
-        printf("   => \"%.*s\" received by peer\n", ret, buf);
+        /* printf("   => \"%.*s\" received by peer\n", ret, buf); */
         n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
 
         // Set acceleration
@@ -1052,6 +1048,62 @@ static void* nrt_retrieve_acceleration(void *arg) {
     }
 
     return NULL;
+}
+
+static void* rt_sample_acceleration(void* arg) {
+    // numbers of seconds to sample.
+    const double nseconds = 0.5;
+    // numbers of samples.
+    const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
+    /* printf("nsamples: %d\n", nsamples); */
+
+    // Save acceleration in here.
+    double a[nsamples];
+
+    while (1) {
+        /* sem_wait(&sem_sample_acc); */
+        /* printf(">>> sampling acceleration\n\n"); */
+        /* printf("# rectangles: "); */
+        for (int i = 0; i < nsamples; ++i) {
+            // Get acceleration
+            if (0 != (errno = pthread_mutex_lock(&mutex_acc))) { // Lock
+                perror("pthread_mutex_lock failed");
+                exit(EXIT_FAILURE);
+            }
+
+            a[i] = acceleration->current;
+
+            // Unlock
+            if (0 != (errno = pthread_mutex_unlock(&mutex_acc))) { // Unlock
+                perror("pthread_mutex_unlock failed");
+                exit(EXIT_FAILURE);
+            }
+
+            /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
+            std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
+            /* printf("%d, ", i); */
+        }
+        /* printf("\n"); */
+        /* printf("\n<<< sampling acceleration done\n\n"); */
+
+        // Numerical integration
+        double velocity = Calculus::trapezoidal_integral(a, nsamples);
+        /* printf("velocity = %f\n", velocity); */
+
+        // Calculate kinetic energy
+        if (0 != (errno = pthread_mutex_lock(&mutex_kinetic_energy))) { // Lock
+            perror("pthread_mutex_lock failed");
+            exit(EXIT_FAILURE);
+        }
+
+        kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
+        printf("kinetic energy = %f\n", kinetic_energy);
+
+        if (0 != (errno = pthread_mutex_unlock(&mutex_kinetic_energy))) { // Unlock
+            perror("pthread_mutex_unlock failed");
+            exit(EXIT_FAILURE);
+        }
+    }
 }
 
 static void *rt_periodic_thread_body(void *arg) {

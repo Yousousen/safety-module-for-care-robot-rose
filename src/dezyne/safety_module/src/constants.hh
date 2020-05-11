@@ -46,6 +46,8 @@
 #define SIZE 10
 #define BUFSIZE 128
 
+#define PERIODIC_CHECKS 1
+
 /*** Structs ***/
 // Framebuffer
 struct fb_t {

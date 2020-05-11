@@ -101,14 +101,14 @@ component Controller {
 				}
 
 				// check angular acceleration
-				safetyState = iAngularAccelerationControl.check_angular_acceleration();
-				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red(red);
-					unsafe_acknowledged = false;
-					angacc_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
-				}
+//				safetyState = iAngularAccelerationControl.check_angular_acceleration();
+//				if (safetyState == Behavior.Unsafe) {
+//					iLEDControl.light_led_red(red);
+//					unsafe_acknowledged = false;
+//					angacc_triggered = $true$;
+//				} else if (unsafe_acknowledged) {
+//						iLEDControl.light_led_blue(blue);
+//				}
 				
 				// check grip arm strength
 				safetyState = iGripArmControl.check_arm_strength();
