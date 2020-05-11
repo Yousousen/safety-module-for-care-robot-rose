@@ -2,6 +2,8 @@
 #define CONSTANTS_HH
 #include <stdint.h>
 #include <pthread.h>
+#include "System.hh"
+
 
 // Read boundary values from CSV file.
 #define CSV_HAS_POSITION 0
@@ -62,6 +64,8 @@ struct fb_t {
 // Not everything in the struct is needed by every thread, the thread just
 // takes what it needs.
 struct threadargs {
+    // Dezyne system
+    System* s;
     // framebuffer mutex pointer.
     pthread_mutex_t* mutex_fb;
     pthread_mutex_t* mutex_color;
@@ -78,8 +82,10 @@ struct threadargs {
 
 // Periodic threads information.
 struct th_info {
-  int period;
-  void (*body)(void* args);
+    int period;
+    void (*body)(void* args);
+    // Dezyne system
+    System* s;
 };
 
 struct periodic_task {

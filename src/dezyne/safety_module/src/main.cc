@@ -112,6 +112,9 @@ static void* rt_retrieve_acceleration(void* arg);
 // - calculates KE
 static void* rt_sample_acceleration(void* arg);
 
+// check periodically
+static void rt_checks(void* arg);
+
 // Starts a periodic real-time thread.
 static void *rt_periodic_thread_body(void *arg);
 
@@ -187,6 +190,7 @@ sem_t sem_sample_acc;
 
 // Mutexes
 pthread_mutex_t mutex_color;
+pthread_mutex_t mutex_fb;
 pthread_mutex_t mutex_acc;
 pthread_mutex_t mutex_angacc;
 pthread_mutex_t mutex_str;
@@ -341,9 +345,9 @@ ErrorCode_t roll() {
     pthread_attr_t rtattr, nrtattr;
     sigset_t set;
     int sig;
-    static pthread_t th_rt_light_led, th_rt_ret_acc, th_rt_sample_acc;
+    static pthread_t th_rt_light_led, th_rt_ret_acc, th_rt_sample_acc, th_rt_checks;
     static pthread_t th_nrt_light_led, th_nrt_ret_acc;
-    static struct th_info rt_info;
+    static struct th_info th_info;
     struct threadargs thread_args;
 
     sigemptyset(&set);
@@ -355,6 +359,11 @@ ErrorCode_t roll() {
     pthread_attr_setdetachstate(&nrtattr, PTHREAD_CREATE_JOINABLE);
     pthread_attr_setinheritsched(&nrtattr, PTHREAD_EXPLICIT_SCHED);
     pthread_attr_setschedpolicy(&nrtattr, SCHED_OTHER);
+
+    pthread_attr_init(&rtattr);
+    pthread_attr_setdetachstate(&rtattr, PTHREAD_CREATE_JOINABLE);
+    pthread_attr_setinheritsched(&rtattr, PTHREAD_EXPLICIT_SCHED);
+    pthread_attr_setschedpolicy(&rtattr, SCHED_FIFO);
     pthread_attr_setschedparam(&rtattr, &rtparam);
 
     // Initialise semaphores
@@ -368,7 +377,6 @@ ErrorCode_t roll() {
 
 
     // Initialise mutexes.
-    pthread_mutex_t mutex_fb;
     if (0 != (errno = pthread_mutex_init(&mutex_fb, NULL))) {
         perror("pthread_mutex_init() failed");
         return NOT_OK;
@@ -434,6 +442,33 @@ ErrorCode_t roll() {
 
     printf("Started running indefinitely.\n");
     std::string input;
+#if PERIODIC_CHECKS
+    printf("press: q to quit, r to reset\n");
+
+    th_info.body = rt_checks;
+    th_info.period = 1E6*4;   // every 4 second
+    th_info.s = &s;
+    // Start thread rt_sample_acceleration
+    errno = pthread_create(&th_rt_checks, &rtattr, &rt_periodic_thread_body,
+            &th_info);
+    if (errno)
+        fail("pthread_create");
+
+    while (1) {
+        std::cin >> input;
+        /* input = "a"; */
+        if (input == "q") {
+            break;
+        } else if (input == "r") {
+            s.iController.in.reset();
+        } else if (input == "i") {
+            // Purposely here to show illegal exception handler.
+            s.iController.in.initialise();
+        } else {
+            printf("Did not understand input.\n");
+        }
+    }
+#else
     while (1) {
         printf("press: q to quit, d to execute all checks, r to reset\n");
         printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
@@ -466,6 +501,7 @@ ErrorCode_t roll() {
             printf("Did not understand input.\n");
         }
     }
+#endif
     printf("Stopping\n");
 
     // Destruct framebuffer
@@ -478,11 +514,19 @@ ErrorCode_t roll() {
     pthread_cancel(th_rt_ret_acc);
     pthread_cancel(th_rt_sample_acc);
 
+#if PERIODIC_CHECKS
+    pthread_cancel(th_rt_checks);
+#endif
+
     pthread_join(th_nrt_light_led, NULL);
     pthread_join(th_nrt_ret_acc, NULL);
     pthread_join(th_rt_light_led, NULL);
     pthread_join(th_rt_ret_acc, NULL);
     pthread_join(th_rt_sample_acc, NULL);
+
+#if PERIODIC_CHECKS
+    pthread_join(th_rt_checks, NULL);
+#endif
 
     // Destroy mutexes
     if (0 != (errno = pthread_mutex_destroy(&mutex_fb))) {
@@ -587,7 +631,20 @@ void light_led(unsigned color) {
 }
 
 void reset_led() {
+    // Lock
+    if (0 != (errno = pthread_mutex_lock(&mutex_fb))) {
+        perror("pthread_mutex_lock failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // Reset the matrix.
     memset(fb, 0, 128);
+
+    // Unlock
+    if (0 != (errno = pthread_mutex_unlock(&mutex_fb))) {
+        perror("pthread_mutex_unlock failed");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void initialise_framebuffer() {
@@ -1106,10 +1163,22 @@ static void* rt_sample_acceleration(void* arg) {
     }
 }
 
+static void rt_checks(void* arg) {
+    struct threadargs *args = (struct threadargs *)arg;
+
+    // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
+    sem_post(&sem_ret_acc);
+    // Notify rt_sample_acceleration that it can go sample acceleration.
+    /* sem_post(&sem_sample_acc); */
+
+    (args->s)->iController.in.do_checks();
+}
+
 static void *rt_periodic_thread_body(void *arg) {
-    struct periodic_task* ptask;
+    struct periodic_task *ptask;
     struct th_info* the_thread = (struct th_info*) arg;
-    struct threadargs rt_args;
+    struct threadargs threadargs;
+    threadargs.s = the_thread->s;
 
     /* ptask = start_periodic_timer(2000000, the_thread->period); */
     ptask = start_periodic_timer(0, the_thread->period);
@@ -1121,7 +1190,7 @@ static void *rt_periodic_thread_body(void *arg) {
 
     while(1) {
         wait_next_activation(ptask);
-        the_thread->body((void*) &rt_args);
+        the_thread->body((void*) &threadargs);
     }
 
     return NULL;
@@ -1130,7 +1199,7 @@ static void *rt_periodic_thread_body(void *arg) {
 static void *nrt_periodic_thread_body(void *arg) {
     struct periodic_task *ptask;
     struct th_info* the_thread = (struct th_info*) arg;
-    struct threadargs thread_args;
+    struct threadargs threadargs;
 
     /* ptask = start_periodic_timer(2000000, the_thread->period); */
     ptask = start_periodic_timer(0, the_thread->period);
@@ -1142,7 +1211,7 @@ static void *nrt_periodic_thread_body(void *arg) {
 
     while(1) {
         wait_next_activation(ptask);
-        the_thread->body((void*) &thread_args);
+        the_thread->body((void*) &threadargs);
     }
 
     return NULL;
