@@ -111,21 +111,6 @@ void Controller::iController_reset()
         }
       }
     }
-    safetyState = this->iAngularAccelerationControl.in.check_angular_acceleration();
-    {
-      if (safetyState == ::Behavior::Unsafe) 
-      {
-        this->iLEDControl.in.light_led_red(red);
-        unsafe_acknowledged = false;
-        angacc_triggered = true;
-      }
-      else {
-        if (unsafe_acknowledged) 
-        {
-          this->iLEDControl.in.light_led_blue(blue);
-        }
-      }
-    }
     safetyState = this->iGripArmControl.in.check_arm_strength();
     {
       if (safetyState == ::Behavior::Unsafe) 
