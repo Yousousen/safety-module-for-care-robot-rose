@@ -66,17 +66,6 @@ struct fb_t {
 struct threadargs {
     // Dezyne system
     System* s;
-    // framebuffer mutex pointer.
-    pthread_mutex_t* mutex_fb;
-    pthread_mutex_t* mutex_color;
-    pthread_mutex_t* mutex_acc;
-    pthread_mutex_t* mutex_angacc;
-    pthread_mutex_t* mutex_str;
-    pthread_mutex_t* mutex_pos;
-    pthread_mutex_t* mutex_kinetic_energy;
-    pthread_mutex_t* mutex_rotational_energy;
-    pthread_mutex_t* mutex_arm_strength;
-    pthread_mutex_t* mutex_arm_position;
     int xddp_socket;
 };
 

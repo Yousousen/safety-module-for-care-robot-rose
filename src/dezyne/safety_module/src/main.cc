@@ -10,6 +10,7 @@
 #include <string>
 #include <thread>
 #include <chrono>
+#include <functional>
 
 // for framebuffer control
 #include <stdint.h>
@@ -144,6 +145,21 @@ static void fail(const char *reason);
 
 void dzn_light_led(char* color);
 
+// calls function f in a thread safe manner, locking the mutex before the call.
+static inline int safe_call(std::function<void()> f, pthread_mutex_t* mutex) {
+    if (0 != (errno = pthread_mutex_lock(mutex))) { // Lock
+        perror("pthread_mutex_lock failed");
+        return NOT_OK;
+    }
+
+    f();
+
+    if (0 != (errno = pthread_mutex_unlock(mutex))) { // Unlock
+        perror("pthread_mutex_unlock failed");
+        return NOT_OK;
+    }
+}
+
 // Add period microseconds to timespec ts.
 static inline void timespec_add_us(struct timespec *ts, unsigned long long period)
 {
@@ -212,26 +228,19 @@ auto main() -> int {
     destruct();
 }
 
+
 ErrorCode_t roll() {
     // Initialise dezyne locator and runtime.
     IResolver iResolver({});
 
     // Bind resolvers
     iResolver.in.resolve_ke_from_acc = []() -> Behavior::type {
+        int r;
         Behavior::type type;
         double ke;
 
-        if (0 != (errno = pthread_mutex_lock(&mutex_kinetic_energy))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        ke = kinetic_energy;
-
-        if (0 != (errno = pthread_mutex_unlock(&mutex_kinetic_energy))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call([&ke]() { ke = kinetic_energy; }, &mutex_kinetic_energy);
+        if (r != OK) exit(EXIT_FAILURE);
 
         if (ke > MAX_KE)
             type = Behavior::type::Unsafe;
@@ -241,20 +250,12 @@ ErrorCode_t roll() {
     };
 
     iResolver.in.resolve_re_from_ang_acc = []() -> Behavior::type {
+        int r;
         Behavior::type type;
         double re;
 
-        if (0 != (errno = pthread_mutex_lock(&mutex_rotational_energy))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        re = rotational_energy;
-
-        if (0 != (errno = pthread_mutex_unlock(&mutex_rotational_energy))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call([&re]() { re = rotational_energy; }, &mutex_rotational_energy);
+        if (r != OK) exit(EXIT_FAILURE);
 
         if (re > MAX_RE)
             type =  Behavior::type::Unsafe;
@@ -264,20 +265,12 @@ ErrorCode_t roll() {
     };
 
     iResolver.in.resolve_arm_str = []() -> Behavior::type {
+        int r;
         Behavior::type type;
         double str;
 
-        if (0 != (errno = pthread_mutex_lock(&mutex_arm_strength))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        str = arm_strength;
-
-        if (0 != (errno = pthread_mutex_unlock(&mutex_arm_strength))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call([&str]() { str = arm_strength; }, &mutex_arm_strength);
+        if (r != OK) exit(EXIT_FAILURE);
 
         if (arm_has_payload() && str > MAX_STR_PAYLOAD)
             type = Behavior::type::Unsafe;
@@ -289,22 +282,18 @@ ErrorCode_t roll() {
     };
 
     iResolver.in.resolve_arm_pos = []() -> Behavior::type {
+        int r;
         Behavior::type type;
+        bool folded;
 
-        if (0 != (errno = pthread_mutex_lock(&mutex_arm_position))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call([&folded]() { folded = arm_is_folded(); },
+                &mutex_arm_position);
+        if (r != OK) exit(EXIT_FAILURE);
 
-        if (robot_is_moving() && !arm_is_folded())
+        if (robot_is_moving() && !folded)
             type = Behavior::type::Unsafe;
         else
             type = Behavior::type::Safe;
-
-        if (0 != (errno = pthread_mutex_unlock(&mutex_arm_position))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
         return type;
     };
 
@@ -631,20 +620,9 @@ void light_led(unsigned color) {
 }
 
 void reset_led() {
-    // Lock
-    if (0 != (errno = pthread_mutex_lock(&mutex_fb))) {
-        perror("pthread_mutex_lock failed");
-        exit(EXIT_FAILURE);
-    }
-
-    // Reset the matrix.
-    memset(fb, 0, 128);
-
-    // Unlock
-    if (0 != (errno = pthread_mutex_unlock(&mutex_fb))) {
-        perror("pthread_mutex_unlock failed");
-        exit(EXIT_FAILURE);
-    }
+    int r;
+    r = safe_call([]() { memset(fb, 0, 128); }, &mutex_fb);
+    if (r != OK) exit(EXIT_FAILURE);
 }
 
 void initialise_framebuffer() {
@@ -765,23 +743,15 @@ void retrieve_all() {
 
 void sample_acceleration(double* f, const int nsamples) {
     printf("# rectangles: ");
+    int r;
     int i;
     for (i = 0; i < nsamples; ++i) {
-        // Get acceleration
-        if (0 != (errno = pthread_mutex_lock(&mutex_acc))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
+        double curr;
 
-        f[i] = acceleration->current;
+        r = safe_call([&curr]() { curr = acceleration->current; }, &mutex_acc);
+        if (r != OK) exit(EXIT_FAILURE);
+        f[i] = curr;
 
-        // Unlock
-        if (0 != (errno = pthread_mutex_unlock(&mutex_acc))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
         std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
     }
     printf("%d, ", i);
@@ -876,6 +846,7 @@ static void* rt_light_led(void* arg) {
     int n = 0;
     int len;
     int ret;
+    int r;
     int s;
     char buf[128];
     struct sockaddr_ipc saddr;
@@ -930,18 +901,8 @@ static void* rt_light_led(void* arg) {
         char msg[SIZE];
 
         // Get color
-        if (0 != (errno = pthread_mutex_lock(&mutex_color))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        strcpy(msg, color);
-
-        // Unlock
-        if (0 != (errno = pthread_mutex_unlock(&mutex_color))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call([&msg]() { strcpy(msg, color); }, &mutex_color);
+        if (r != OK) exit(EXIT_FAILURE);
 
         len = strlen(msg);
         ret = sendto(s, msg, len, 0, NULL, 0);
@@ -953,9 +914,8 @@ static void* rt_light_led(void* arg) {
 }
 
 static void* nrt_light_led(void *arg) {
+    int r;
     struct threadargs *args = (struct threadargs *)arg;
-    // Pointer to mutex is passed as an argument.
-    pthread_mutex_t* mutex_fb = args->mutex_fb;
 
     char buf[128], *devname;
     int fd, ret;
@@ -976,20 +936,8 @@ static void* nrt_light_led(void *arg) {
         // Convert hex string to int.
         int color = (int)strtol(buf, NULL, 16);
 
-        // Lock
-        if (0 != (errno = pthread_mutex_lock(mutex_fb))) {
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        // Color the matrix.
-        light_led(color);
-
-        // Unlock
-        if (0 != (errno = pthread_mutex_unlock(mutex_fb))) {
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call([=]() { light_led(color); }, &mutex_color);
+        if (r != OK) exit(EXIT_FAILURE);
     }
 
     return NULL;
@@ -999,14 +947,13 @@ static void* rt_retrieve_acceleration(void* arg) {
     int n = 0;
     int len;
     int ret;
+    int r;
     int s;
     char buf[BUFSIZE];
     struct sockaddr_ipc saddr;
     size_t poolsz;
 
     struct threadargs *args = (struct threadargs *)arg;
-    // Pointer to mutex is passed as an argument.
-    pthread_mutex_t* mutex_acc = args->mutex_acc;
 
     // Initialise XDDP
     /*
@@ -1059,26 +1006,14 @@ static void* rt_retrieve_acceleration(void* arg) {
         n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
 
         // Set acceleration
-        if (0 != (errno = pthread_mutex_lock(mutex_acc))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        set_acceleration(atof(buf));
-
-        // Unlock
-        if (0 != (errno = pthread_mutex_unlock(mutex_acc))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call([&buf]() { set_acceleration(atof(buf)); }, &mutex_acc);
+        if (r != OK) exit(EXIT_FAILURE);
     }
     return NULL;
 }
 
 static void* nrt_retrieve_acceleration(void *arg) {
-    /* struct threadargs *args = (struct threadargs *)arg; */
-    // Pointer to mutex is passed as an argument.
-    /* pthread_mutex_t* mutex_acc = args->mutex_acc; */
+    struct threadargs *args = (struct threadargs *)arg;
 
     char buf[BUFSIZE], *devname;
     int fd, ret;
@@ -1108,6 +1043,7 @@ static void* nrt_retrieve_acceleration(void *arg) {
 }
 
 static void* rt_sample_acceleration(void* arg) {
+    int r;
     // numbers of seconds to sample.
     const double nseconds = 0.5;
     // numbers of samples.
@@ -1122,21 +1058,13 @@ static void* rt_sample_acceleration(void* arg) {
         /* printf(">>> sampling acceleration\n\n"); */
         /* printf("# rectangles: "); */
         for (int i = 0; i < nsamples; ++i) {
+            double curr;
             // Get acceleration
-            if (0 != (errno = pthread_mutex_lock(&mutex_acc))) { // Lock
-                perror("pthread_mutex_lock failed");
-                exit(EXIT_FAILURE);
-            }
+            r = safe_call([&curr]() { curr = acceleration->current; },
+                    &mutex_acc);
+            if (r != OK) exit(EXIT_FAILURE);
+            a[i] = curr;
 
-            a[i] = acceleration->current;
-
-            // Unlock
-            if (0 != (errno = pthread_mutex_unlock(&mutex_acc))) { // Unlock
-                perror("pthread_mutex_unlock failed");
-                exit(EXIT_FAILURE);
-            }
-
-            /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
             std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
             /* printf("%d, ", i); */
         }
@@ -1147,19 +1075,12 @@ static void* rt_sample_acceleration(void* arg) {
         double velocity = Calculus::trapezoidal_integral(a, nsamples);
         /* printf("velocity = %f\n", velocity); */
 
-        // Calculate kinetic energy
-        if (0 != (errno = pthread_mutex_lock(&mutex_kinetic_energy))) { // Lock
-            perror("pthread_mutex_lock failed");
-            exit(EXIT_FAILURE);
-        }
-
-        kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
-        printf("kinetic energy = %f\n", kinetic_energy);
-
-        if (0 != (errno = pthread_mutex_unlock(&mutex_kinetic_energy))) { // Unlock
-            perror("pthread_mutex_unlock failed");
-            exit(EXIT_FAILURE);
-        }
+        r = safe_call( [=]() {
+                    kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
+                    printf("ke = %g\n", kinetic_energy);
+                    },
+                    &mutex_kinetic_energy);
+        if (r != OK) exit(EXIT_FAILURE);
     }
 }
 
@@ -1178,6 +1099,8 @@ static void *rt_periodic_thread_body(void *arg) {
     struct periodic_task *ptask;
     struct th_info* the_thread = (struct th_info*) arg;
     struct threadargs threadargs;
+
+    // copy over dezyne system pointer
     threadargs.s = the_thread->s;
 
     /* ptask = start_periodic_timer(2000000, the_thread->period); */
@@ -1245,21 +1168,11 @@ void wait_next_activation(struct periodic_task *ptask) {
     timespec_add_us(&ptask->ts, ptask->period);
 }
 
-
 void dzn_light_led(char* color) {
     // Set color
-    if (0 != (errno = pthread_mutex_lock(&mutex_color))) { // Lock
-        perror("pthread_mutex_lock failed");
-        exit(EXIT_FAILURE);
-    }
+    int r = safe_call([=]() { strcpy(::color, color); }, &mutex_color);
 
-    strcpy(::color, color);
-
-    // Unlock
-    if (0 != (errno = pthread_mutex_unlock(&mutex_color))) { // Unlock
-        perror("pthread_mutex_unlock failed");
-        exit(EXIT_FAILURE);
-    }
+    if (r != OK) exit(EXIT_FAILURE);
     // Let rt_light_led know that it can send a color to nrt_light_led.
     sem_post(&sem_led);
 }
