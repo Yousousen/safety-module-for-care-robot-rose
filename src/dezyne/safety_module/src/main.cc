@@ -11,6 +11,7 @@
 #include <thread>
 #include <chrono>
 #include <functional>
+#include <map>
 
 // for framebuffer control
 #include <stdint.h>
@@ -145,6 +146,12 @@ static void fail(const char *reason);
 
 void dzn_light_led(char* color);
 
+static int init_mutexes(std::map<std::string, pthread_mutex_t>& m);
+static int destroy_mutexes(std::map<std::string, pthread_mutex_t>& m);
+
+static int init_semaphores(std::map<std::string, sem_t>& s);
+static int destroy_semaphores(std::map<std::string, sem_t>& s);
+
 // calls function f in a thread safe manner, locking the mutex before the call.
 static inline int safe_call(std::function<void()> f, pthread_mutex_t* mutex) {
     if (0 != (errno = pthread_mutex_lock(mutex))) { // Lock
@@ -196,30 +203,14 @@ CareRobotRose* rose = nullptr;
 struct fb_t *fb;
 int fbfd = 0;
 
-// Semaphores
-sem_t sem_led;
-sem_t sem_ret_acc;
-sem_t sem_ret_angacc;
-sem_t sem_ret_str;
-sem_t sem_ret_pos;
-sem_t sem_sample_acc;
-
-// Mutexes
-pthread_mutex_t mutex_color;
-pthread_mutex_t mutex_fb;
-pthread_mutex_t mutex_acc;
-pthread_mutex_t mutex_angacc;
-pthread_mutex_t mutex_str;
-pthread_mutex_t mutex_pos;
-pthread_mutex_t mutex_kinetic_energy;
-pthread_mutex_t mutex_rotational_energy;
-pthread_mutex_t mutex_arm_strength;
-pthread_mutex_t mutex_arm_position;
-
 static char color[SIZE];
 
-/* static const char* color_blue = "0x0006"; */
-/* static const char* color_red = "0x3000"; */
+
+// Semaphores
+std::map<std::string, sem_t> semaphore;
+
+// Mutexes
+std::map<std::string, pthread_mutex_t> mutex;
 
 auto main() -> int {
     initialise();
@@ -228,6 +219,68 @@ auto main() -> int {
     destruct();
 }
 
+
+static int init_semaphores(std::map<std::string, sem_t>& s) {
+    // Make semaphores
+    s["led"];
+    s["retrieve_acc"];
+    s["retrieve_angacc"];
+    s["retrieve_str"];
+    s["retrieve_pos"];
+    s["sample_acc"];
+
+    // Initialise semaphores.
+    for (auto it = s.begin(); it != s.end(); ++it) {
+        if (0 != (errno = sem_init(&it->second, 0, 0))) {
+            perror("sem_init() failed");
+            return NOT_OK;
+        }
+    }
+    return OK;
+}
+
+static int destroy_semaphores(std::map<std::string, sem_t>& s) {
+    for (auto it = s.begin(); it != s.end(); ++it) {
+        if (0 != (errno = sem_destroy(&it->second))) {
+            perror("pthread_mutex_destroy() failed");
+            return NOT_OK;
+        }
+    }
+    return OK;
+}
+
+static int init_mutexes(std::map<std::string, pthread_mutex_t>& m) {
+    // Make mutex
+    mutex["color"];
+    mutex["fb"];
+    mutex["acc"];
+    mutex["angacc"];
+    mutex["str"];
+    mutex["pos"];
+    mutex["ke"];
+    mutex["re"];
+    mutex["str"];
+    mutex["pos"];
+
+    // Initialise mutexes.
+    for (auto it = m.begin(); it != m.end(); ++it) {
+        if (0 != (errno = pthread_mutex_init(&it->second, NULL))) {
+            perror("pthread_mutex_init() failed");
+            return NOT_OK;
+        }
+    }
+    return OK;
+}
+
+static int destroy_mutexes(std::map<std::string, pthread_mutex_t>& m) {
+    for (auto it = m.begin(); it != m.end(); ++it) {
+        if (0 != (errno = pthread_mutex_destroy(&it->second))) {
+            perror("pthread_mutex_destroy() failed");
+            return NOT_OK;
+        }
+    }
+    return OK;
+}
 
 ErrorCode_t roll() {
     // Initialise dezyne locator and runtime.
@@ -239,7 +292,7 @@ ErrorCode_t roll() {
         Behavior::type type;
         double ke;
 
-        r = safe_call([&ke]() { ke = kinetic_energy; }, &mutex_kinetic_energy);
+        r = safe_call([&ke]() { ke = kinetic_energy; }, &mutex["ke"]);
         if (r != OK) exit(EXIT_FAILURE);
 
         if (ke > MAX_KE)
@@ -254,7 +307,7 @@ ErrorCode_t roll() {
         Behavior::type type;
         double re;
 
-        r = safe_call([&re]() { re = rotational_energy; }, &mutex_rotational_energy);
+        r = safe_call([&re]() { re = rotational_energy; }, &mutex["re"]);
         if (r != OK) exit(EXIT_FAILURE);
 
         if (re > MAX_RE)
@@ -269,7 +322,7 @@ ErrorCode_t roll() {
         Behavior::type type;
         double str;
 
-        r = safe_call([&str]() { str = arm_strength; }, &mutex_arm_strength);
+        r = safe_call([&str]() { str = arm_strength; }, &mutex["str"]);
         if (r != OK) exit(EXIT_FAILURE);
 
         if (arm_has_payload() && str > MAX_STR_PAYLOAD)
@@ -287,7 +340,7 @@ ErrorCode_t roll() {
         bool folded;
 
         r = safe_call([&folded]() { folded = arm_is_folded(); },
-                &mutex_arm_position);
+                &mutex["pos"]);
         if (r != OK) exit(EXIT_FAILURE);
 
         if (robot_is_moving() && !folded)
@@ -308,19 +361,16 @@ ErrorCode_t roll() {
 
     /*** Bind native functions ***/
     s.iController.out.what_triggered = what_triggered;
-
     s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
     s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
     s.iLEDControl.in.light_led_red = dzn_light_led;
     s.iLEDControl.in.light_led_blue = dzn_light_led;
     s.iLEDControl.in.reset_led = reset_led;
-
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
-    s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc = retrieve_re_from_ang_acc;
-
+    s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc =
+        retrieve_re_from_ang_acc;
     s.iGripArmSensor.in.retrieve_arm_str = retrieve_arm_str;
     s.iGripArmSensor.in.retrieve_arm_pos = retrieve_arm_pos;
-
 
     // Check bindings
     s.check_bindings();
@@ -355,52 +405,10 @@ ErrorCode_t roll() {
     pthread_attr_setschedpolicy(&rtattr, SCHED_FIFO);
     pthread_attr_setschedparam(&rtattr, &rtparam);
 
-    // Initialise semaphores
-    // params: the semaphore, share between threads, initialise with value 0.
-    sem_init(&sem_led, 0, 0);
-    sem_init(&sem_ret_acc, 0, 0);
-    sem_init(&sem_ret_angacc, 0, 0); 
-    sem_init(&sem_ret_str, 0, 0); 
-    sem_init(&sem_ret_pos, 0, 0); 
-    sem_init(&sem_sample_acc, 0, 0); 
-
-
     // Initialise mutexes.
-    if (0 != (errno = pthread_mutex_init(&mutex_fb, NULL))) {
-        perror("pthread_mutex_init() failed");
-        return NOT_OK;
-    }
-    thread_args.mutex_fb = &mutex_fb;
-
-    if (0 != (errno = pthread_mutex_init(&mutex_color, NULL))) {
-        perror("pthread_mutex_init() failed");
-        return NOT_OK;
-    }
-    thread_args.mutex_color = &mutex_color;
-
-    if (0 != (errno = pthread_mutex_init(&mutex_acc, NULL))) {
-        perror("pthread_mutex_init() failed");
-        return NOT_OK;
-    }
-    thread_args.mutex_acc = &mutex_acc;
-
-    if (0 != (errno = pthread_mutex_init(&mutex_angacc, NULL))) {
-        perror("pthread_mutex_init() failed");
-        return NOT_OK;
-    }
-    thread_args.mutex_angacc = &mutex_angacc;
-
-    if (0 != (errno = pthread_mutex_init(&mutex_str, NULL))) {
-        perror("pthread_mutex_init() failed");
-        return NOT_OK;
-    }
-    thread_args.mutex_str = &mutex_str;
-
-    if (0 != (errno = pthread_mutex_init(&mutex_pos, NULL))) {
-        perror("pthread_mutex_init() failed");
-        return NOT_OK;
-    }
-    thread_args.mutex_pos = &mutex_pos;
+    init_mutexes(mutex);
+    // Initialise semaphores
+    init_semaphores(semaphore);
 
     /*** Start threads ***/
     // Start thread rt_light_led
@@ -409,17 +417,20 @@ ErrorCode_t roll() {
         fail("pthread_create");
 
     // Start thread nrt_light_led
-    errno = pthread_create(&th_nrt_light_led, &nrtattr, &nrt_light_led, (void*) &thread_args);
+    errno = pthread_create(&th_nrt_light_led, &nrtattr, &nrt_light_led, (void*)
+            &thread_args);
     if (errno)
         fail("pthread_create");
 
     // Start thread rt_retrieve_acceleration
-    errno = pthread_create(&th_rt_ret_acc, &rtattr, &rt_retrieve_acceleration, &thread_args);
+    errno = pthread_create(&th_rt_ret_acc, &rtattr, &rt_retrieve_acceleration,
+            &thread_args);
     if (errno)
         fail("pthread_create");
 
     // Start thread nrt_retrieve_acceleration
-    errno = pthread_create(&th_nrt_ret_acc, &nrtattr, &nrt_retrieve_acceleration, NULL);
+    errno = pthread_create(&th_nrt_ret_acc, &nrtattr,
+            &nrt_retrieve_acceleration, NULL);
     if (errno)
         fail("pthread_create");
 
@@ -463,7 +474,7 @@ ErrorCode_t roll() {
         printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
 
         // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
-        sem_post(&sem_ret_acc);
+        sem_post(&semaphore["retrieve_acc"]]);
         // Notify rt_sample_acceleration that it can go sample acceleration.
         /* sem_post(&sem_sample_acc); */
 
@@ -518,43 +529,10 @@ ErrorCode_t roll() {
 #endif
 
     // Destroy mutexes
-    if (0 != (errno = pthread_mutex_destroy(&mutex_fb))) {
-        perror("pthread_mutex_destroy() failed");
-        return NOT_OK;
-    }
-
-    if (0 != (errno = pthread_mutex_destroy(&mutex_color))) {
-        perror("pthread_mutex_destroy() failed");
-        return NOT_OK;
-    }
-
-    if (0 != (errno = pthread_mutex_destroy(&mutex_acc))) {
-        perror("pthread_mutex_destroy() failed");
-        return NOT_OK;
-    }
-
-    if (0 != (errno = pthread_mutex_destroy(&mutex_angacc))) {
-        perror("pthread_mutex_destroy() failed");
-        return NOT_OK;
-    }
-
-    if (0 != (errno = pthread_mutex_destroy(&mutex_str))) {
-        perror("pthread_mutex_destroy() failed");
-        return NOT_OK;
-    }
-
-    if (0 != (errno = pthread_mutex_destroy(&mutex_pos))) {
-        perror("pthread_mutex_destroy() failed");
-        return NOT_OK;
-    }
+    destroy_mutexes(mutex);
 
     // Destroy semaphores
-    sem_destroy(&sem_led); 
-    sem_destroy(&sem_ret_acc); 
-    sem_destroy(&sem_ret_angacc); 
-    sem_destroy(&sem_ret_str); 
-    sem_destroy(&sem_ret_pos); 
-    sem_destroy(&sem_sample_acc); 
+    destroy_semaphores(semaphore);
 
     return OK;
 }
@@ -621,7 +599,7 @@ void light_led(unsigned color) {
 
 void reset_led() {
     int r;
-    r = safe_call([]() { memset(fb, 0, 128); }, &mutex_fb);
+    r = safe_call([]() { memset(fb, 0, 128); }, &mutex["fb"]);
     if (r != OK) exit(EXIT_FAILURE);
 }
 
@@ -748,7 +726,7 @@ void sample_acceleration(double* f, const int nsamples) {
     for (i = 0; i < nsamples; ++i) {
         double curr;
 
-        r = safe_call([&curr]() { curr = acceleration->current; }, &mutex_acc);
+        r = safe_call([&curr]() { curr = acceleration->current; }, &mutex["acc"]);
         if (r != OK) exit(EXIT_FAILURE);
         f[i] = curr;
 
@@ -897,11 +875,11 @@ static void* rt_light_led(void* arg) {
      */
     while (1) {
         // Wait for an up to send a color to the LED matrix.
-        sem_wait(&sem_led); 
+        sem_wait(&semaphore["led"]); 
         char msg[SIZE];
 
         // Get color
-        r = safe_call([&msg]() { strcpy(msg, color); }, &mutex_color);
+        r = safe_call([&msg]() { strcpy(msg, color); }, &mutex["color"]);
         if (r != OK) exit(EXIT_FAILURE);
 
         len = strlen(msg);
@@ -936,7 +914,7 @@ static void* nrt_light_led(void *arg) {
         // Convert hex string to int.
         int color = (int)strtol(buf, NULL, 16);
 
-        r = safe_call([=]() { light_led(color); }, &mutex_color);
+        r = safe_call([=]() { light_led(color); }, &mutex["color"]);
         if (r != OK) exit(EXIT_FAILURE);
     }
 
@@ -1006,7 +984,7 @@ static void* rt_retrieve_acceleration(void* arg) {
         n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
 
         // Set acceleration
-        r = safe_call([&buf]() { set_acceleration(atof(buf)); }, &mutex_acc);
+        r = safe_call([&buf]() { set_acceleration(atof(buf)); }, &mutex["acc"]);
         if (r != OK) exit(EXIT_FAILURE);
     }
     return NULL;
@@ -1027,7 +1005,7 @@ static void* nrt_retrieve_acceleration(void *arg) {
     while (1) {
         // Wait for an up before retrieving acceleration from the sense hat
         // driver.
-        sem_wait(&sem_ret_acc);
+        sem_wait(&semaphore["retrieve_acc"]);
 
         // Retrieve acceleration
         double acc = retrieve_acceleration();
@@ -1061,7 +1039,7 @@ static void* rt_sample_acceleration(void* arg) {
             double curr;
             // Get acceleration
             r = safe_call([&curr]() { curr = acceleration->current; },
-                    &mutex_acc);
+                    &mutex["acc"]);
             if (r != OK) exit(EXIT_FAILURE);
             a[i] = curr;
 
@@ -1079,7 +1057,7 @@ static void* rt_sample_acceleration(void* arg) {
                     kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
                     printf("ke = %g\n", kinetic_energy);
                     },
-                    &mutex_kinetic_energy);
+                    &mutex["ke"]);
         if (r != OK) exit(EXIT_FAILURE);
     }
 }
@@ -1088,7 +1066,7 @@ static void rt_checks(void* arg) {
     struct threadargs *args = (struct threadargs *)arg;
 
     // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
-    sem_post(&sem_ret_acc);
+    sem_post(&semaphore["retrieve_acc"]);
     // Notify rt_sample_acceleration that it can go sample acceleration.
     /* sem_post(&sem_sample_acc); */
 
@@ -1170,10 +1148,9 @@ void wait_next_activation(struct periodic_task *ptask) {
 
 void dzn_light_led(char* color) {
     // Set color
-    int r = safe_call([=]() { strcpy(::color, color); }, &mutex_color);
+    int r = safe_call([=]() { strcpy(::color, color); }, &mutex["color"]);
 
     if (r != OK) exit(EXIT_FAILURE);
     // Let rt_light_led know that it can send a color to nrt_light_led.
-    sem_post(&sem_led);
+    sem_post(&semaphore["led"]);
 }
-
