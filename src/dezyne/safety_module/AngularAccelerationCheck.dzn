@@ -38,3 +38,24 @@ component AngularAccelerationCheck {
 		}
 	}
 }
+
+//requirement AnyUnsafe {
+//	provides IRequirement iAngularAccelerationCheck;
+//	// component
+//	on AngularAccelerationCheck;
+//
+//	behaviour {
+//		Behavior b1;
+//		Behavior b2;
+//		on do_check(): {
+//			b1 = iResolver.resolve_re_from_ang_acc();
+//			b2 = next.do_check();
+//			// If one of the two is Behavior.Unsafe
+//			if (b1 == Behavior.Unsafe || b2 == Behavior.Unsafe) {
+//				reply(Behavior.Unsafe);
+//			} else {
+//				reply(Behavior.Safe);
+//			}
+//		}
+//	}
+//}

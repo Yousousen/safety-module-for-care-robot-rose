@@ -83,3 +83,27 @@ component Controller {
 		}
 	}
 }
+
+//requirement ControllerRequirement {
+//	on Controller;
+//
+//	provides IController iController;
+//	requires ILEDControl iLEDControl;
+//
+//	behaviour {
+//		bool safe = false;
+//		
+//		[safe] {
+//			on iController.do_checks(): {
+//				iLEDControl.light_led_blue();
+//			}
+//		}
+//		[!safe] {
+//			on iController.do_checks(): {
+//				iLEDControl.light_led_red();
+//			}
+//		}
+//		on initialise: {
+//		}
+//	}
+//}

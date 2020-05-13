@@ -7,16 +7,16 @@ interface IResolver {
 	in Behavior resolve_arm_pos();
 
 	behaviour {
-		on resolve_ke_from_acc: {reply(Behavior.Safe); }
-		on resolve_ke_from_acc: {reply(Behavior.Unsafe); }
+		on resolve_ke_from_acc: reply(Behavior.Safe); 
+		on resolve_ke_from_acc: reply(Behavior.Unsafe); 
 
-		on resolve_re_from_ang_acc: {reply(Behavior.Safe); }
-		on resolve_re_from_ang_acc: {reply(Behavior.Unsafe); }
+		on resolve_re_from_ang_acc: reply(Behavior.Safe); 
+		on resolve_re_from_ang_acc: reply(Behavior.Unsafe); 
 
-		on resolve_arm_str: {reply(Behavior.Safe); }
-		on resolve_arm_str: {reply(Behavior.Unsafe); }
+		on resolve_arm_pos: reply(Behavior.Safe); 
+		on resolve_arm_pos: reply(Behavior.Unsafe); 
 
-		on resolve_arm_pos: {reply(Behavior.Safe); }
-		on resolve_arm_pos: {reply(Behavior.Unsafe); }
+		on resolve_arm_str: reply(Behavior.Safe); 
+		on resolve_arm_str: reply(Behavior.Unsafe); 
 	}
 }
