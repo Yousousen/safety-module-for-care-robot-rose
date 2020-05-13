@@ -1,0 +1,10 @@
+import DataTypes.dzn;
+
+interface ISafetyCheck {
+	in Behavior do_check();
+	
+	behaviour {
+		on do_check: {  reply(Behavior.Safe); }
+		on do_check: {  reply(Behavior.Unsafe); }
+	}	
+}

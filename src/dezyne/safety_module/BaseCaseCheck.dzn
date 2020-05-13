@@ -1,0 +1,10 @@
+import DataTypes.dzn;
+import ISafetyCheck.dzn;
+
+component BaseCaseCheck {
+	provides ISafetyCheck iRoot;
+	
+	behaviour {
+		on iRoot.do_check(): reply(Behavior.Safe);
+	}
+}

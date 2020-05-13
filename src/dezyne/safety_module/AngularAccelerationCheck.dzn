@@ -1,0 +1,40 @@
+import DataTypes.dzn;
+import ISafetyCheck.dzn;
+import Resolver.dzn;
+
+interface IAngularAccelerationSensor {
+	in void retrieve_re_from_ang_acc();
+	
+	behaviour {
+		on retrieve_re_from_ang_acc: {}
+	}
+}
+
+component AngularAccelerationCheck {
+	requires IAngularAccelerationSensor iAngularAccelerationSensor;
+	provides ISafetyCheck iAngularAccelerationCheck;
+	requires ISafetyCheck iNext;
+	requires injected IResolver iResolver;
+
+	behaviour {
+		// Function to boolean and current and next safety state.
+		// If either current or next is Unsafe we return Unsafe.
+		Behavior and_safety_states(Behavior current, Behavior next) {
+			if(current == Behavior.Unsafe || next == Behavior.Unsafe) {
+				return Behavior.Unsafe;
+			}
+			return Behavior.Safe;
+		}
+		
+		on iAngularAccelerationCheck.do_check(): {
+			Behavior currSafetyState = Behavior.Safe;
+			// TODO: Let the data go through the retriever here.
+			iAngularAccelerationSensor.retrieve_re_from_ang_acc();
+			currSafetyState = iResolver.resolve_re_from_ang_acc();
+			
+			Behavior nextSafetyState = iNext.do_check();
+			Behavior res = and_safety_states(currSafetyState, nextSafetyState); 
+			reply(res);
+		}
+	}
+}

@@ -52,112 +52,17 @@ struct UnsafeTriggered
 #endif // ENUM_UnsafeTriggered
 
 /********************************** INTERFACE *********************************/
-#ifndef IGRIPARMCONTROL_HH
-#define IGRIPARMCONTROL_HH
+#ifndef IGRIPARMSTRENGTHSENSOR_HH
+#define IGRIPARMSTRENGTHSENSOR_HH
 
 
 
-struct IGripArmControl
-{
-
-  struct
-  {
-    std::function< ::Behavior::type()> check_arm_position;
-    std::function< ::Behavior::type()> check_arm_strength;
-  } in;
-
-  struct
-  {
-  } out;
-
-  dzn::port::meta meta;
-  inline IGripArmControl(const dzn::port::meta& m) : meta(m) {}
-
-  void check_bindings() const
-  {
-    if (! in.check_arm_position) throw dzn::binding_error(meta, "in.check_arm_position");
-    if (! in.check_arm_strength) throw dzn::binding_error(meta, "in.check_arm_strength");
-
-
-  }
-};
-
-inline void connect (IGripArmControl& provided, IGripArmControl& required)
-{
-  provided.out = required.out;
-  required.in = provided.in;
-  provided.meta.requires = required.meta.requires;
-  required.meta.provides = provided.meta.provides;
-}
-
-
-#ifndef ENUM_TO_STRING_Behavior
-#define ENUM_TO_STRING_Behavior 1
-inline std::string to_string(::Behavior::type v)
-{
-  switch(v)
-  {
-    case ::Behavior::Unsafe: return "Behavior_Unsafe";
-    case ::Behavior::Safe: return "Behavior_Safe";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_Behavior
-#ifndef ENUM_TO_STRING_UnsafeTriggered
-#define ENUM_TO_STRING_UnsafeTriggered 1
-inline std::string to_string(::UnsafeTriggered::type v)
-{
-  switch(v)
-  {
-    case ::UnsafeTriggered::No: return "UnsafeTriggered_No";
-    case ::UnsafeTriggered::Yes: return "UnsafeTriggered_Yes";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_UnsafeTriggered
-
-#ifndef STRING_TO_ENUM_Behavior
-#define STRING_TO_ENUM_Behavior 1
-inline ::Behavior::type to_Behavior(std::string s)
-{
-  static std::map<std::string, ::Behavior::type> m = {
-    {"Behavior_Unsafe", ::Behavior::Unsafe},
-    {"Behavior_Safe", ::Behavior::Safe},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_Behavior
-#ifndef STRING_TO_ENUM_UnsafeTriggered
-#define STRING_TO_ENUM_UnsafeTriggered 1
-inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
-{
-  static std::map<std::string, ::UnsafeTriggered::type> m = {
-    {"UnsafeTriggered_No", ::UnsafeTriggered::No},
-    {"UnsafeTriggered_Yes", ::UnsafeTriggered::Yes},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_UnsafeTriggered
-
-
-#endif // IGRIPARMCONTROL_HH
-
-/********************************** INTERFACE *********************************/
-/********************************** INTERFACE *********************************/
-#ifndef IGRIPARMSENSOR_HH
-#define IGRIPARMSENSOR_HH
-
-
-
-struct IGripArmSensor
+struct IGripArmStrengthSensor
 {
 
   struct
   {
     std::function< void()> retrieve_arm_str;
-    std::function< void()> retrieve_arm_pos;
   } in;
 
   struct
@@ -165,18 +70,17 @@ struct IGripArmSensor
   } out;
 
   dzn::port::meta meta;
-  inline IGripArmSensor(const dzn::port::meta& m) : meta(m) {}
+  inline IGripArmStrengthSensor(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
     if (! in.retrieve_arm_str) throw dzn::binding_error(meta, "in.retrieve_arm_str");
-    if (! in.retrieve_arm_pos) throw dzn::binding_error(meta, "in.retrieve_arm_pos");
 
 
   }
 };
 
-inline void connect (IGripArmSensor& provided, IGripArmSensor& required)
+inline void connect (IGripArmStrengthSensor& provided, IGripArmStrengthSensor& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -236,18 +140,20 @@ inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
 #endif // STRING_TO_ENUM_UnsafeTriggered
 
 
-#endif // IGRIPARMSENSOR_HH
+#endif // IGRIPARMSTRENGTHSENSOR_HH
 
 /********************************** INTERFACE *********************************/
 /********************************** COMPONENT *********************************/
-#ifndef GRIPARMCONTROL_HH
-#define GRIPARMCONTROL_HH
+#ifndef GRIPARMSTRENGTHCHECK_HH
+#define GRIPARMSTRENGTHCHECK_HH
 
+#include "ISafetyCheck.hh"
+#include "ISafetyCheck.hh"
 #include "Resolver.hh"
 
 
 
-struct GripArmControl
+struct GripArmStrengthCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
@@ -256,28 +162,29 @@ struct GripArmControl
 
   ::Behavior::type reply_Behavior;
 
-  std::function<void ()> out_iGripArmControl;
+  std::function<void ()> out_iGripArmStrengthCheck;
 
-  ::IGripArmControl iGripArmControl;
+  ::ISafetyCheck iGripArmStrengthCheck;
 
-  ::IGripArmSensor iGripArmSensor;
+  ::IGripArmStrengthSensor iGripArmStrengthSensor;
+  ::ISafetyCheck iNext;
   ::IResolver iResolver;
 
 
-  GripArmControl(const dzn::locator&);
+  GripArmStrengthCheck(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const GripArmControl& m)  {
+  friend std::ostream& operator << (std::ostream& os, const GripArmStrengthCheck& m)  {
     (void)m;
     return os << "[" << "]" ;
   }
   private:
-  ::Behavior::type iGripArmControl_check_arm_position();
-  ::Behavior::type iGripArmControl_check_arm_strength();
+  ::Behavior::type iGripArmStrengthCheck_do_check();
 
+  ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // GRIPARMCONTROL_HH
+#endif // GRIPARMSTRENGTHCHECK_HH
 
 /********************************** COMPONENT *********************************/
 

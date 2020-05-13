@@ -19,34 +19,42 @@
 //SYSTEM
 
 System::System(const dzn::locator& dzn_locator)
-: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularAccelerationSensor.meta,& iGripArmSensor.meta},{& controller.dzn_meta,& accelerationControl.dzn_meta,& angularAccelerationControl.dzn_meta,& gripArmControl.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularAccelerationSensor.check_bindings();},[this]{iGripArmSensor.check_bindings();}}}
+: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularAccelerationSensor.meta,& iGripArmPositionSensor.meta,& iGripArmStrengthSensor.meta},{& controller.dzn_meta,& accelerationCheck.dzn_meta,& angularAccelerationCheck.dzn_meta,& gripArmPositionCheck.dzn_meta,& gripArmStrengthCheck.dzn_meta,& baseCaseCheck.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularAccelerationSensor.check_bindings();},[this]{iGripArmPositionSensor.check_bindings();},[this]{iGripArmStrengthSensor.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
 
 , controller(dzn_locator)
-, accelerationControl(dzn_locator)
-, angularAccelerationControl(dzn_locator)
-, gripArmControl(dzn_locator)
+, accelerationCheck(dzn_locator)
+, angularAccelerationCheck(dzn_locator)
+, gripArmPositionCheck(dzn_locator)
+, gripArmStrengthCheck(dzn_locator)
+, baseCaseCheck(dzn_locator)
 
 , iController(controller.iController)
-, iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationControl.iAccelerationSensor), iAngularAccelerationSensor(angularAccelerationControl.iAngularAccelerationSensor), iGripArmSensor(gripArmControl.iGripArmSensor)
+, iLEDControl(controller.iLEDControl), iAccelerationSensor(accelerationCheck.iAccelerationSensor), iAngularAccelerationSensor(angularAccelerationCheck.iAngularAccelerationSensor), iGripArmPositionSensor(gripArmPositionCheck.iGripArmPositionSensor), iGripArmStrengthSensor(gripArmStrengthCheck.iGripArmStrengthSensor)
 {
 
 
   controller.dzn_meta.parent = &dzn_meta;
   controller.dzn_meta.name = "controller";
-  accelerationControl.dzn_meta.parent = &dzn_meta;
-  accelerationControl.dzn_meta.name = "accelerationControl";
-  angularAccelerationControl.dzn_meta.parent = &dzn_meta;
-  angularAccelerationControl.dzn_meta.name = "angularAccelerationControl";
-  gripArmControl.dzn_meta.parent = &dzn_meta;
-  gripArmControl.dzn_meta.name = "gripArmControl";
+  accelerationCheck.dzn_meta.parent = &dzn_meta;
+  accelerationCheck.dzn_meta.name = "accelerationCheck";
+  angularAccelerationCheck.dzn_meta.parent = &dzn_meta;
+  angularAccelerationCheck.dzn_meta.name = "angularAccelerationCheck";
+  gripArmPositionCheck.dzn_meta.parent = &dzn_meta;
+  gripArmPositionCheck.dzn_meta.name = "gripArmPositionCheck";
+  gripArmStrengthCheck.dzn_meta.parent = &dzn_meta;
+  gripArmStrengthCheck.dzn_meta.name = "gripArmStrengthCheck";
+  baseCaseCheck.dzn_meta.parent = &dzn_meta;
+  baseCaseCheck.dzn_meta.name = "baseCaseCheck";
 
 
-  connect(accelerationControl.iAccelerationControl, controller.iAccelerationControl);
-  connect(angularAccelerationControl.iAngularAccelerationControl, controller.iAngularAccelerationControl);
-  connect(gripArmControl.iGripArmControl, controller.iGripArmControl);
+  connect(accelerationCheck.iAccelerationCheck, controller.iNext);
+  connect(angularAccelerationCheck.iAngularAccelerationCheck, accelerationCheck.iNext);
+  connect(gripArmPositionCheck.iGripArmPositionCheck, angularAccelerationCheck.iNext);
+  connect(gripArmStrengthCheck.iGripArmStrengthCheck, gripArmPositionCheck.iNext);
+  connect(baseCaseCheck.iRoot, gripArmStrengthCheck.iNext);
 
   dzn::rank(iController.meta.provides.meta, 0);
 

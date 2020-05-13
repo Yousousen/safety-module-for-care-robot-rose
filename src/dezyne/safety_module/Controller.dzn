@@ -1,19 +1,12 @@
+import ISafetyCheck.dzn;
 import DataTypes.dzn;
 import LEDControl.dzn;
-import AccelerationControl.dzn;
-import AngularAccelerationControl.dzn;
-import GripArmControl.dzn;
 
 interface IController {
 	in void initialise();
 	in void destruct();
 	in void reset();
 	in UnsafeTriggered do_checks();
-	in UnsafeTriggered check_acc();
-	in UnsafeTriggered check_angacc();
-	in UnsafeTriggered check_str();
-	in UnsafeTriggered check_pos();
-	out void what_triggered(bool_t acc, bool_t angacc, bool_t str, bool_t pos);
 
 	behaviour {
 		enum State {Idle, Operating};
@@ -24,7 +17,6 @@ interface IController {
 			on destruct: illegal;
 			on reset: illegal;
 			on do_checks: illegal;
-			on check_acc, check_angacc, check_str, check_pos: illegal;
 		}
 		[state.Operating] {
 			on initialise: illegal;
@@ -32,20 +24,8 @@ interface IController {
 
 			on reset: {}
 
-			on do_checks: { what_triggered; reply(UnsafeTriggered.Yes); }
-			on do_checks: { what_triggered; reply(UnsafeTriggered.No);  }
-			
-			on check_acc: { what_triggered; reply(UnsafeTriggered.Yes); }
-			on check_acc: { what_triggered; reply(UnsafeTriggered.No);  }
-			
-			on check_angacc: { what_triggered; reply(UnsafeTriggered.Yes); }
-			on check_angacc: { what_triggered; reply(UnsafeTriggered.No);  }
-			
-			on check_str: { what_triggered; reply(UnsafeTriggered.Yes); }
-			on check_str: { what_triggered; reply(UnsafeTriggered.No);  }
-			
-			on check_pos: { what_triggered; reply(UnsafeTriggered.Yes); }
-			on check_pos: { what_triggered; reply(UnsafeTriggered.No);  }
+			on do_checks: { reply(UnsafeTriggered.Yes); }
+			on do_checks: { reply(UnsafeTriggered.No);  }
 		}
 	}
 }
@@ -53,19 +33,12 @@ interface IController {
 component Controller {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
-	requires IAccelerationControl iAccelerationControl;
-	requires IAngularAccelerationControl iAngularAccelerationControl;
-	requires IGripArmControl iGripArmControl;
+	requires ISafetyCheck iNext;
 
 	behaviour {
 		enum State {Idle, Operating};
 		State systemState = State.Idle;
 		bool unsafe_acknowledged = true;
-
-		bool_t acc_triggered;
-		bool_t angacc_triggered;
-		bool_t str_triggered;
-		bool_t pos_triggered;
 
 		color_t red = $"0x3000"$;
 		color_t blue = $"0x0006"$;
@@ -85,138 +58,23 @@ component Controller {
 			}
 
 			on iController.do_checks(): {
-				acc_triggered = $false$;
-				angacc_triggered = $false$;
-				str_triggered = $false$;
-				pos_triggered = $false$;
-
-				// check acceleration
-				Behavior safetyState = iAccelerationControl.check_acceleration();
-				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red(red);
-					unsafe_acknowledged = false;
-					acc_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
-				}
-
-				// check angular acceleration
-//				safetyState = iAngularAccelerationControl.check_angular_acceleration();
-//				if (safetyState == Behavior.Unsafe) {
-//					iLEDControl.light_led_red(red);
-//					unsafe_acknowledged = false;
-//					angacc_triggered = $true$;
-//				} else if (unsafe_acknowledged) {
-//						iLEDControl.light_led_blue(blue);
-//				}
+				Behavior safetyState = iNext.do_check();
 				
-				// check grip arm strength
-				safetyState = iGripArmControl.check_arm_strength();
 				if (safetyState == Behavior.Unsafe) {
+					// TODO: Remove parameter or rename event.
 					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
-					str_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
+				} else if(unsafe_acknowledged) {
+					iLEDControl.light_led_blue(blue);
 				}
-
-				// check grip arm position
-				safetyState = iGripArmControl.check_arm_position();
-				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red(red);
-					unsafe_acknowledged = false;
-					pos_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
+				if(!unsafe_acknowledged) {
+					reply(UnsafeTriggered.Yes);
 				}
-
-				iController.what_triggered(
-					acc_triggered, angacc_triggered, str_triggered, pos_triggered
-				);
-				if (!unsafe_acknowledged) reply(UnsafeTriggered.Yes);
-				else reply(UnsafeTriggered.No);
+				else {
+					reply(UnsafeTriggered.No);
+				}
 			}
-
-			on iController.check_acc(): {
-				acc_triggered = $false$;
-
-				// check acceleration
-				Behavior safetyState = iAccelerationControl.check_acceleration();
-				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red(red);
-					unsafe_acknowledged = false;
-					acc_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
-				}
-
-				iController.what_triggered(
-					acc_triggered, angacc_triggered, str_triggered, pos_triggered
-				);
-				if (!unsafe_acknowledged) reply(UnsafeTriggered.Yes);
-				else reply(UnsafeTriggered.No);
-			}
-
-			on iController.check_angacc(): {
-				angacc_triggered = $false$;
-
-				// check angular acceleration
-				Behavior safetyState =
-				iAngularAccelerationControl.check_angular_acceleration();
-				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red(red);
-					unsafe_acknowledged = false;
-					angacc_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
-				}
-
-				iController.what_triggered(
-					acc_triggered, angacc_triggered, str_triggered, pos_triggered
-				);
-				if (!unsafe_acknowledged) reply(UnsafeTriggered.Yes);
-				else reply(UnsafeTriggered.No);
-			}
-
-			on iController.check_str(): {
-				str_triggered = $false$;
-				// check grip arm strength
-				Behavior safetyState = iGripArmControl.check_arm_strength();
-				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red(red);
-					unsafe_acknowledged = false;
-					str_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
-				}
-
-				iController.what_triggered(
-					acc_triggered, angacc_triggered, str_triggered, pos_triggered
-				);
-				if (!unsafe_acknowledged) reply(UnsafeTriggered.Yes);
-				else reply(UnsafeTriggered.No);
-			}
-
-			on iController.check_pos(): {
-				pos_triggered = $false$;
-
-				// check grip arm position
-				Behavior safetyState = iGripArmControl.check_arm_position();
-				if (safetyState == Behavior.Unsafe) {
-					iLEDControl.light_led_red(red);
-					unsafe_acknowledged = false;
-					pos_triggered = $true$;
-				} else if (unsafe_acknowledged) {
-						iLEDControl.light_led_blue(blue);
-				}
-
-				iController.what_triggered(
-					acc_triggered, angacc_triggered, str_triggered, pos_triggered
-				);
-				if (!unsafe_acknowledged) reply(UnsafeTriggered.Yes);
-				else reply(UnsafeTriggered.No);
-			}
-
+				
 			// Unsafe behavior is acknowledged, reset state.
 			on iController.reset(): {
 				iLEDControl.reset_led();

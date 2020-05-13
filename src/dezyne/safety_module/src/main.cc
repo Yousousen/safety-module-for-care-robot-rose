@@ -13,7 +13,6 @@
 #include <functional>
 #include <map>
 
-// for framebuffer control
 #include <stdint.h>
 #include <fcntl.h>
 #include <linux/fb.h>
@@ -26,20 +25,15 @@
 #include <unistd.h>
 #include <semaphore.h>
 #include <rtdm/ipc.h>
-
-#include <linux/input.h>
-#include <linux/fb.h>
-
-// For Dezyne
-#include <dzn/runtime.hh>
-#include <dzn/locator.hh>
-#include "System.hh"
-
 #include <signal.h>
 #include <pthread.h>
 #include <errno.h>
+#include <linux/input.h>
+#include <linux/fb.h>
+#include <dzn/runtime.hh>
+#include <dzn/locator.hh>
 
-
+#include "System.hh"
 #include "constants.hh"
 #include "calculus.hh"
 #include "physics.hh"
@@ -92,7 +86,7 @@ Behavior::type resolve_arm_pos();
 void initialise();
 void destruct();
 
-void what_triggered(bool acc, bool angacc, bool str, bool pos);
+/* void what_triggered(bool acc, bool angacc, bool str, bool pos); */
 
 /*** Threads related ***/
 
@@ -205,10 +199,8 @@ int fbfd = 0;
 
 static char color[SIZE];
 
-
 // Semaphores
 std::map<std::string, sem_t> semaphore;
-
 // Mutexes
 std::map<std::string, pthread_mutex_t> mutex;
 
@@ -281,6 +273,7 @@ static int destroy_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     }
     return OK;
 }
+
 
 ErrorCode_t roll() {
     // Initialise dezyne locator and runtime.
@@ -360,7 +353,7 @@ ErrorCode_t roll() {
 
 
     /*** Bind native functions ***/
-    s.iController.out.what_triggered = what_triggered;
+    /* s.iController.out.what_triggered = what_triggered; */
     s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
     s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
     s.iLEDControl.in.light_led_red = dzn_light_led;
@@ -369,12 +362,11 @@ ErrorCode_t roll() {
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
     s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc =
         retrieve_re_from_ang_acc;
-    s.iGripArmSensor.in.retrieve_arm_str = retrieve_arm_str;
-    s.iGripArmSensor.in.retrieve_arm_pos = retrieve_arm_pos;
+    s.iGripArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos;
+    s.iGripArmStrengthSensor.in.retrieve_arm_str = retrieve_arm_str;
 
     // Check bindings
     s.check_bindings();
-
 
     // Initialise framebuffer
     s.iController.in.initialise();
@@ -809,16 +801,16 @@ bool arm_has_payload() {
     return rose->arm->has_payload;
 }
 
-void what_triggered(bool acc, bool angacc, bool str, bool pos) {
-    if (!(acc || angacc || str || pos)) return;
-    printf(">>> what triggered:\n\n");
-    printf("Unsafe behavior caused by:\n");
-    if (acc)    printf("acceleration\n");
-    if (angacc) printf("angular acceleration\n");
-    if (str)    printf("arm strength\n");
-    if (pos)    printf("arm position\n");
-    printf("<<<\n\n");
-}
+/* void what_triggered(bool acc, bool angacc, bool str, bool pos) { */
+/*     if (!(acc || angacc || str || pos)) return; */
+/*     printf(">>> what triggered:\n\n"); */
+/*     printf("Unsafe behavior caused by:\n"); */
+/*     if (acc)    printf("acceleration\n"); */
+/*     if (angacc) printf("angular acceleration\n"); */
+/*     if (str)    printf("arm strength\n"); */
+/*     if (pos)    printf("arm position\n"); */
+/*     printf("<<<\n\n"); */
+/* } */
 
 static void* rt_light_led(void* arg) {
     int n = 0;

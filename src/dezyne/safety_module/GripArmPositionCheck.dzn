@@ -1,0 +1,38 @@
+import DataTypes.dzn;
+import ISafetyCheck.dzn;
+import Resolver.dzn;
+
+interface IGripArmPositionSensor {
+	in void retrieve_arm_pos();
+	
+	behaviour {
+		on retrieve_arm_pos: {}
+	}
+}
+
+component GripArmPositionCheck {
+	requires IGripArmPositionSensor iGripArmPositionSensor;
+	provides ISafetyCheck iGripArmPositionCheck;
+	requires ISafetyCheck iNext;
+	requires injected IResolver iResolver;
+
+	behaviour {
+		Behavior and_safety_states(Behavior current, Behavior next) {
+			if(current == Behavior.Unsafe || next == Behavior.Unsafe) {
+				return Behavior.Unsafe;
+			}
+			return Behavior.Safe;
+		}
+
+		on iGripArmPositionCheck.do_check(): {
+			Behavior currSafetyState = Behavior.Safe;
+			// TODO: Let the data go through the retriever here.
+			iGripArmPositionSensor.retrieve_arm_pos();
+			currSafetyState = iResolver.resolve_arm_pos();
+			
+			Behavior nextSafetyState = iNext.do_check();
+			Behavior res = and_safety_states(currSafetyState, nextSafetyState); 
+			reply(res);
+		}
+	}
+}

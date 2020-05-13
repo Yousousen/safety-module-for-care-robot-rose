@@ -1,33 +1,39 @@
 import Controller.dzn;
 import LEDControl.dzn;
-import AccelerationControl.dzn;
-import AngularAccelerationControl.dzn;
-import GripArmControl.dzn;
+import AccelerationCheck.dzn;
+import AngularAccelerationCheck.dzn;
+import GripArmPositionCheck.dzn;
+import GripArmStrengthCheck.dzn;
+import BaseCaseCheck.dzn;
 
 component System {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
 	requires IAccelerationSensor iAccelerationSensor;
 	requires IAngularAccelerationSensor iAngularAccelerationSensor;
-	requires IGripArmSensor iGripArmSensor;
-
+	requires IGripArmPositionSensor iGripArmPositionSensor;
+	requires IGripArmStrengthSensor iGripArmStrengthSensor;
+	
 	system {
 		Controller controller;
-		AccelerationControl accelerationControl;
-		AngularAccelerationControl angularAccelerationControl;
-		GripArmControl gripArmControl;
-
+		AccelerationCheck accelerationCheck;
+		AngularAccelerationCheck angularAccelerationCheck;
+		GripArmPositionCheck gripArmPositionCheck;
+		GripArmStrengthCheck gripArmStrengthCheck;
+		BaseCaseCheck baseCaseCheck;
+		
 		iController <=> controller.iController;
-
 		iLEDControl <=> controller.iLEDControl;
 
-		accelerationControl.iAccelerationControl <=> controller.iAccelerationControl;
-		iAccelerationSensor <=> accelerationControl.iAccelerationSensor;
-
-		angularAccelerationControl.iAngularAccelerationControl <=> controller.iAngularAccelerationControl;
-		iAngularAccelerationSensor <=> angularAccelerationControl.iAngularAccelerationSensor;
-		
-		gripArmControl.iGripArmControl <=> controller.iGripArmControl;
-		iGripArmSensor <=> gripArmControl.iGripArmSensor;
+		iAccelerationSensor <=> accelerationCheck.iAccelerationSensor;
+		iAngularAccelerationSensor <=> angularAccelerationCheck.iAngularAccelerationSensor;
+		iGripArmPositionSensor <=> gripArmPositionCheck.iGripArmPositionSensor;
+		iGripArmStrengthSensor <=> gripArmStrengthCheck.iGripArmStrengthSensor;
+ 
+		controller.iNext <=> accelerationCheck.iAccelerationCheck;
+        accelerationCheck.iNext <=> angularAccelerationCheck.iAngularAccelerationCheck;
+		angularAccelerationCheck.iNext <=> gripArmPositionCheck.iGripArmPositionCheck;
+		gripArmPositionCheck.iNext <=> gripArmStrengthCheck.iGripArmStrengthCheck;
+		gripArmStrengthCheck.iNext <=> baseCaseCheck.iRoot;
 	}
 }

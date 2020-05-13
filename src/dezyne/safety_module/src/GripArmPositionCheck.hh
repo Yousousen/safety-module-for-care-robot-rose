@@ -52,17 +52,17 @@ struct UnsafeTriggered
 #endif // ENUM_UnsafeTriggered
 
 /********************************** INTERFACE *********************************/
-#ifndef IACCELERATIONCONTROL_HH
-#define IACCELERATIONCONTROL_HH
+#ifndef IGRIPARMPOSITIONSENSOR_HH
+#define IGRIPARMPOSITIONSENSOR_HH
 
 
 
-struct IAccelerationControl
+struct IGripArmPositionSensor
 {
 
   struct
   {
-    std::function< ::Behavior::type()> check_acceleration;
+    std::function< void()> retrieve_arm_pos;
   } in;
 
   struct
@@ -70,17 +70,17 @@ struct IAccelerationControl
   } out;
 
   dzn::port::meta meta;
-  inline IAccelerationControl(const dzn::port::meta& m) : meta(m) {}
+  inline IGripArmPositionSensor(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
-    if (! in.check_acceleration) throw dzn::binding_error(meta, "in.check_acceleration");
+    if (! in.retrieve_arm_pos) throw dzn::binding_error(meta, "in.retrieve_arm_pos");
 
 
   }
 };
 
-inline void connect (IAccelerationControl& provided, IAccelerationControl& required)
+inline void connect (IGripArmPositionSensor& provided, IGripArmPositionSensor& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -140,110 +140,20 @@ inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
 #endif // STRING_TO_ENUM_UnsafeTriggered
 
 
-#endif // IACCELERATIONCONTROL_HH
-
-/********************************** INTERFACE *********************************/
-/********************************** INTERFACE *********************************/
-#ifndef IACCELERATIONSENSOR_HH
-#define IACCELERATIONSENSOR_HH
-
-
-
-struct IAccelerationSensor
-{
-
-  struct
-  {
-    std::function< void()> retrieve_ke_from_acc;
-  } in;
-
-  struct
-  {
-  } out;
-
-  dzn::port::meta meta;
-  inline IAccelerationSensor(const dzn::port::meta& m) : meta(m) {}
-
-  void check_bindings() const
-  {
-    if (! in.retrieve_ke_from_acc) throw dzn::binding_error(meta, "in.retrieve_ke_from_acc");
-
-
-  }
-};
-
-inline void connect (IAccelerationSensor& provided, IAccelerationSensor& required)
-{
-  provided.out = required.out;
-  required.in = provided.in;
-  provided.meta.requires = required.meta.requires;
-  required.meta.provides = provided.meta.provides;
-}
-
-
-#ifndef ENUM_TO_STRING_Behavior
-#define ENUM_TO_STRING_Behavior 1
-inline std::string to_string(::Behavior::type v)
-{
-  switch(v)
-  {
-    case ::Behavior::Unsafe: return "Behavior_Unsafe";
-    case ::Behavior::Safe: return "Behavior_Safe";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_Behavior
-#ifndef ENUM_TO_STRING_UnsafeTriggered
-#define ENUM_TO_STRING_UnsafeTriggered 1
-inline std::string to_string(::UnsafeTriggered::type v)
-{
-  switch(v)
-  {
-    case ::UnsafeTriggered::No: return "UnsafeTriggered_No";
-    case ::UnsafeTriggered::Yes: return "UnsafeTriggered_Yes";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_UnsafeTriggered
-
-#ifndef STRING_TO_ENUM_Behavior
-#define STRING_TO_ENUM_Behavior 1
-inline ::Behavior::type to_Behavior(std::string s)
-{
-  static std::map<std::string, ::Behavior::type> m = {
-    {"Behavior_Unsafe", ::Behavior::Unsafe},
-    {"Behavior_Safe", ::Behavior::Safe},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_Behavior
-#ifndef STRING_TO_ENUM_UnsafeTriggered
-#define STRING_TO_ENUM_UnsafeTriggered 1
-inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
-{
-  static std::map<std::string, ::UnsafeTriggered::type> m = {
-    {"UnsafeTriggered_No", ::UnsafeTriggered::No},
-    {"UnsafeTriggered_Yes", ::UnsafeTriggered::Yes},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_UnsafeTriggered
-
-
-#endif // IACCELERATIONSENSOR_HH
+#endif // IGRIPARMPOSITIONSENSOR_HH
 
 /********************************** INTERFACE *********************************/
 /********************************** COMPONENT *********************************/
-#ifndef ACCELERATIONCONTROL_HH
-#define ACCELERATIONCONTROL_HH
+#ifndef GRIPARMPOSITIONCHECK_HH
+#define GRIPARMPOSITIONCHECK_HH
 
+#include "ISafetyCheck.hh"
+#include "ISafetyCheck.hh"
 #include "Resolver.hh"
 
 
 
-struct AccelerationControl
+struct GripArmPositionCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
@@ -252,27 +162,29 @@ struct AccelerationControl
 
   ::Behavior::type reply_Behavior;
 
-  std::function<void ()> out_iAccelerationControl;
+  std::function<void ()> out_iGripArmPositionCheck;
 
-  ::IAccelerationControl iAccelerationControl;
+  ::ISafetyCheck iGripArmPositionCheck;
 
-  ::IAccelerationSensor iAccelerationSensor;
+  ::IGripArmPositionSensor iGripArmPositionSensor;
+  ::ISafetyCheck iNext;
   ::IResolver iResolver;
 
 
-  AccelerationControl(const dzn::locator&);
+  GripArmPositionCheck(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const AccelerationControl& m)  {
+  friend std::ostream& operator << (std::ostream& os, const GripArmPositionCheck& m)  {
     (void)m;
     return os << "[" << "]" ;
   }
   private:
-  ::Behavior::type iAccelerationControl_check_acceleration();
+  ::Behavior::type iGripArmPositionCheck_do_check();
 
+  ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // ACCELERATIONCONTROL_HH
+#endif // GRIPARMPOSITIONCHECK_HH
 
 /********************************** COMPONENT *********************************/
 

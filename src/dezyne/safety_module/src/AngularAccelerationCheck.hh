@@ -52,98 +52,6 @@ struct UnsafeTriggered
 #endif // ENUM_UnsafeTriggered
 
 /********************************** INTERFACE *********************************/
-#ifndef IANGULARACCELERATIONCONTROL_HH
-#define IANGULARACCELERATIONCONTROL_HH
-
-
-
-struct IAngularAccelerationControl
-{
-
-  struct
-  {
-    std::function< ::Behavior::type()> check_angular_acceleration;
-  } in;
-
-  struct
-  {
-  } out;
-
-  dzn::port::meta meta;
-  inline IAngularAccelerationControl(const dzn::port::meta& m) : meta(m) {}
-
-  void check_bindings() const
-  {
-    if (! in.check_angular_acceleration) throw dzn::binding_error(meta, "in.check_angular_acceleration");
-
-
-  }
-};
-
-inline void connect (IAngularAccelerationControl& provided, IAngularAccelerationControl& required)
-{
-  provided.out = required.out;
-  required.in = provided.in;
-  provided.meta.requires = required.meta.requires;
-  required.meta.provides = provided.meta.provides;
-}
-
-
-#ifndef ENUM_TO_STRING_Behavior
-#define ENUM_TO_STRING_Behavior 1
-inline std::string to_string(::Behavior::type v)
-{
-  switch(v)
-  {
-    case ::Behavior::Unsafe: return "Behavior_Unsafe";
-    case ::Behavior::Safe: return "Behavior_Safe";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_Behavior
-#ifndef ENUM_TO_STRING_UnsafeTriggered
-#define ENUM_TO_STRING_UnsafeTriggered 1
-inline std::string to_string(::UnsafeTriggered::type v)
-{
-  switch(v)
-  {
-    case ::UnsafeTriggered::No: return "UnsafeTriggered_No";
-    case ::UnsafeTriggered::Yes: return "UnsafeTriggered_Yes";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_UnsafeTriggered
-
-#ifndef STRING_TO_ENUM_Behavior
-#define STRING_TO_ENUM_Behavior 1
-inline ::Behavior::type to_Behavior(std::string s)
-{
-  static std::map<std::string, ::Behavior::type> m = {
-    {"Behavior_Unsafe", ::Behavior::Unsafe},
-    {"Behavior_Safe", ::Behavior::Safe},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_Behavior
-#ifndef STRING_TO_ENUM_UnsafeTriggered
-#define STRING_TO_ENUM_UnsafeTriggered 1
-inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
-{
-  static std::map<std::string, ::UnsafeTriggered::type> m = {
-    {"UnsafeTriggered_No", ::UnsafeTriggered::No},
-    {"UnsafeTriggered_Yes", ::UnsafeTriggered::Yes},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_UnsafeTriggered
-
-
-#endif // IANGULARACCELERATIONCONTROL_HH
-
-/********************************** INTERFACE *********************************/
-/********************************** INTERFACE *********************************/
 #ifndef IANGULARACCELERATIONSENSOR_HH
 #define IANGULARACCELERATIONSENSOR_HH
 
@@ -236,14 +144,16 @@ inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
 
 /********************************** INTERFACE *********************************/
 /********************************** COMPONENT *********************************/
-#ifndef ANGULARACCELERATIONCONTROL_HH
-#define ANGULARACCELERATIONCONTROL_HH
+#ifndef ANGULARACCELERATIONCHECK_HH
+#define ANGULARACCELERATIONCHECK_HH
 
+#include "ISafetyCheck.hh"
+#include "ISafetyCheck.hh"
 #include "Resolver.hh"
 
 
 
-struct AngularAccelerationControl
+struct AngularAccelerationCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
@@ -252,27 +162,29 @@ struct AngularAccelerationControl
 
   ::Behavior::type reply_Behavior;
 
-  std::function<void ()> out_iAngularAccelerationControl;
+  std::function<void ()> out_iAngularAccelerationCheck;
 
-  ::IAngularAccelerationControl iAngularAccelerationControl;
+  ::ISafetyCheck iAngularAccelerationCheck;
 
   ::IAngularAccelerationSensor iAngularAccelerationSensor;
+  ::ISafetyCheck iNext;
   ::IResolver iResolver;
 
 
-  AngularAccelerationControl(const dzn::locator&);
+  AngularAccelerationCheck(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const AngularAccelerationControl& m)  {
+  friend std::ostream& operator << (std::ostream& os, const AngularAccelerationCheck& m)  {
     (void)m;
     return os << "[" << "]" ;
   }
   private:
-  ::Behavior::type iAngularAccelerationControl_check_angular_acceleration();
+  ::Behavior::type iAngularAccelerationCheck_do_check();
 
+  ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // ANGULARACCELERATIONCONTROL_HH
+#endif // ANGULARACCELERATIONCHECK_HH
 
 /********************************** COMPONENT *********************************/
 

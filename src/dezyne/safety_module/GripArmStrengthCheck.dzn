@@ -1,0 +1,38 @@
+import DataTypes.dzn;
+import ISafetyCheck.dzn;
+import Resolver.dzn;
+
+interface IGripArmStrengthSensor {
+	in void retrieve_arm_str();
+	
+	behaviour {
+		on retrieve_arm_str: {}
+	}
+}
+
+component GripArmStrengthCheck {
+	requires IGripArmStrengthSensor iGripArmStrengthSensor;
+	provides ISafetyCheck iGripArmStrengthCheck;
+	requires ISafetyCheck iNext;
+	requires injected IResolver iResolver;
+
+	behaviour {
+		Behavior and_safety_states(Behavior current, Behavior next) {
+			if(current == Behavior.Unsafe || next == Behavior.Unsafe) {
+				return Behavior.Unsafe;
+			}
+			return Behavior.Safe;
+		}
+
+		on iGripArmStrengthCheck.do_check(): {
+			Behavior currSafetyState = Behavior.Safe;
+			// TODO: Let the data go through the retriever here.
+			iGripArmStrengthSensor.retrieve_arm_str();
+			currSafetyState = iResolver.resolve_arm_str();
+			
+			Behavior nextSafetyState = iNext.do_check();
+			Behavior res = and_safety_states(currSafetyState, nextSafetyState); 
+			reply(res);
+		}
+	}
+}

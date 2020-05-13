@@ -52,34 +52,17 @@ struct UnsafeTriggered
 #endif // ENUM_UnsafeTriggered
 
 /********************************** INTERFACE *********************************/
-#ifndef ICONTROLLER_HH
-#define ICONTROLLER_HH
+#ifndef IACCELERATIONSENSOR_HH
+#define IACCELERATIONSENSOR_HH
 
 
 
-struct IController
+struct IAccelerationSensor
 {
-#ifndef ENUM_IController_State
-#define ENUM_IController_State 1
-
-
-  struct State
-  {
-    enum type
-    {
-      Idle,Operating
-    };
-  };
-
-
-#endif // ENUM_IController_State
 
   struct
   {
-    std::function< void()> initialise;
-    std::function< void()> destruct;
-    std::function< void()> reset;
-    std::function< ::UnsafeTriggered::type()> do_checks;
+    std::function< void()> retrieve_ke_from_acc;
   } in;
 
   struct
@@ -87,20 +70,17 @@ struct IController
   } out;
 
   dzn::port::meta meta;
-  inline IController(const dzn::port::meta& m) : meta(m) {}
+  inline IAccelerationSensor(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
-    if (! in.initialise) throw dzn::binding_error(meta, "in.initialise");
-    if (! in.destruct) throw dzn::binding_error(meta, "in.destruct");
-    if (! in.reset) throw dzn::binding_error(meta, "in.reset");
-    if (! in.do_checks) throw dzn::binding_error(meta, "in.do_checks");
+    if (! in.retrieve_ke_from_acc) throw dzn::binding_error(meta, "in.retrieve_ke_from_acc");
 
 
   }
 };
 
-inline void connect (IController& provided, IController& required)
+inline void connect (IAccelerationSensor& provided, IAccelerationSensor& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -135,19 +115,6 @@ inline std::string to_string(::UnsafeTriggered::type v)
   return "";
 }
 #endif // ENUM_TO_STRING_UnsafeTriggered
-#ifndef ENUM_TO_STRING_IController_State
-#define ENUM_TO_STRING_IController_State 1
-inline std::string to_string(::IController::State::type v)
-{
-  switch(v)
-  {
-    case ::IController::State::Idle: return "State_Idle";
-    case ::IController::State::Operating: return "State_Operating";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_IController_State
 
 #ifndef STRING_TO_ENUM_Behavior
 #define STRING_TO_ENUM_Behavior 1
@@ -171,83 +138,53 @@ inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
   return m.at(s);
 }
 #endif // STRING_TO_ENUM_UnsafeTriggered
-#ifndef STRING_TO_ENUM_IController_State
-#define STRING_TO_ENUM_IController_State 1
-inline ::IController::State::type to_IController_State(std::string s)
-{
-  static std::map<std::string, ::IController::State::type> m = {
-    {"State_Idle", ::IController::State::Idle},
-    {"State_Operating", ::IController::State::Operating},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_IController_State
 
 
-#endif // ICONTROLLER_HH
+#endif // IACCELERATIONSENSOR_HH
 
 /********************************** INTERFACE *********************************/
 /********************************** COMPONENT *********************************/
-#ifndef CONTROLLER_HH
-#define CONTROLLER_HH
+#ifndef ACCELERATIONCHECK_HH
+#define ACCELERATIONCHECK_HH
 
-#include "LEDControl.hh"
 #include "ISafetyCheck.hh"
+#include "ISafetyCheck.hh"
+#include "Resolver.hh"
 
 
 
-struct Controller
+struct AccelerationCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
   dzn::locator const& dzn_locator;
-#ifndef ENUM_Controller_State
-#define ENUM_Controller_State 1
 
 
-  struct State
-  {
-    enum type
-    {
-      Idle,Operating
-    };
-  };
-
-
-#endif // ENUM_Controller_State
-
-  ::Controller::State::type systemState;
-  bool unsafe_acknowledged;
-  char* red;
-  char* blue;
-
-  ::UnsafeTriggered::type reply_UnsafeTriggered;
   ::Behavior::type reply_Behavior;
 
-  std::function<void ()> out_iController;
+  std::function<void ()> out_iAccelerationCheck;
 
-  ::IController iController;
+  ::ISafetyCheck iAccelerationCheck;
 
-  ::ILEDControl iLEDControl;
+  ::IAccelerationSensor iAccelerationSensor;
   ::ISafetyCheck iNext;
+  ::IResolver iResolver;
 
 
-  Controller(const dzn::locator&);
+  AccelerationCheck(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const Controller& m)  {
+  friend std::ostream& operator << (std::ostream& os, const AccelerationCheck& m)  {
     (void)m;
-    return os << "[" << m.systemState <<", " << m.unsafe_acknowledged <<", " << m.red <<", " << m.blue <<"]" ;
+    return os << "[" << "]" ;
   }
   private:
-  void iController_initialise();
-  void iController_destruct();
-  void iController_reset();
-  ::UnsafeTriggered::type iController_do_checks();
+  ::Behavior::type iAccelerationCheck_do_check();
 
+  ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // CONTROLLER_HH
+#endif // ACCELERATIONCHECK_HH
 
 /********************************** COMPONENT *********************************/
 

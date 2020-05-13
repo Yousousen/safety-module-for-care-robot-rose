@@ -51,52 +51,44 @@ struct UnsafeTriggered
 
 #endif // ENUM_UnsafeTriggered
 
-/***********************************  SYSTEM  ***********************************/
-#ifndef SYSTEM_HH
-#define SYSTEM_HH
+/********************************** COMPONENT *********************************/
+#ifndef BASECASECHECK_HH
+#define BASECASECHECK_HH
 
-
-#include <dzn/locator.hh>
-
-#include "Controller.hh"
-#include "AccelerationCheck.hh"
-#include "AngularAccelerationCheck.hh"
-#include "GripArmPositionCheck.hh"
-#include "GripArmStrengthCheck.hh"
-#include "BaseCaseCheck.hh"
+#include "ISafetyCheck.hh"
 
 
 
-struct System
+struct BaseCaseCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
   dzn::locator const& dzn_locator;
 
 
-  ::Controller controller;
-  ::AccelerationCheck accelerationCheck;
-  ::AngularAccelerationCheck angularAccelerationCheck;
-  ::GripArmPositionCheck gripArmPositionCheck;
-  ::GripArmStrengthCheck gripArmStrengthCheck;
-  ::BaseCaseCheck baseCaseCheck;
+  ::Behavior::type reply_Behavior;
 
-  ::IController& iController;
+  std::function<void ()> out_iRoot;
 
-  ::ILEDControl& iLEDControl;
-  ::IAccelerationSensor& iAccelerationSensor;
-  ::IAngularAccelerationSensor& iAngularAccelerationSensor;
-  ::IGripArmPositionSensor& iGripArmPositionSensor;
-  ::IGripArmStrengthSensor& iGripArmStrengthSensor;
+  ::ISafetyCheck iRoot;
 
-  System(const dzn::locator&);
+
+
+  BaseCaseCheck(const dzn::locator&);
   void check_bindings() const;
-  void dump_tree(std::ostream& os=std::clog) const;
+  void dump_tree(std::ostream& os) const;
+  friend std::ostream& operator << (std::ostream& os, const BaseCaseCheck& m)  {
+    (void)m;
+    return os << "[" << "]" ;
+  }
+  private:
+  ::Behavior::type iRoot_do_check();
+
 };
 
-#endif // SYSTEM_HH
+#endif // BASECASECHECK_HH
 
-/***********************************  SYSTEM  ***********************************/
+/********************************** COMPONENT *********************************/
 
 
 //version: 2.9.1
