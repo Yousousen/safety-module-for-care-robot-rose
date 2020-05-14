@@ -371,7 +371,7 @@ ErrorCode_t roll() {
     // Initialise framebuffer
     s.iController.in.initialise();
 
-    /*** Threads ***/
+    /*** Threads related ***/
     struct sched_param rtparam = { .sched_priority = 42 };
     pthread_attr_t rtattr, nrtattr;
     sigset_t set;
@@ -379,7 +379,7 @@ ErrorCode_t roll() {
     static pthread_t th_rt_light_led, th_rt_ret_acc, th_rt_sample_acc, th_rt_checks;
     static pthread_t th_nrt_light_led, th_nrt_ret_acc;
     static struct th_info th_info;
-    struct threadargs thread_args;
+    struct threadargs threadargs;
 
     sigemptyset(&set);
     sigaddset(&set, SIGINT);
@@ -410,13 +410,13 @@ ErrorCode_t roll() {
 
     // Start thread nrt_light_led
     errno = pthread_create(&th_nrt_light_led, &nrtattr, &nrt_light_led, (void*)
-            &thread_args);
+            &threadargs);
     if (errno)
         fail("pthread_create");
 
     // Start thread rt_retrieve_acceleration
     errno = pthread_create(&th_rt_ret_acc, &rtattr, &rt_retrieve_acceleration,
-            &thread_args);
+            &threadargs);
     if (errno)
         fail("pthread_create");
 
@@ -428,7 +428,7 @@ ErrorCode_t roll() {
 
     // Start thread rt_sample_acceleration
     errno = pthread_create(&th_rt_sample_acc, &rtattr, &rt_sample_acceleration,
-            &thread_args);
+            &threadargs);
     if (errno)
         fail("pthread_create");
 
@@ -466,7 +466,7 @@ ErrorCode_t roll() {
         printf("a to check acc, aa to check ang acc, s to check str, p to check pos\n\n> ");
 
         // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
-        sem_post(&semaphore["retrieve_acc"]]);
+        /* sem_post(&semaphore["retrieve_acc"]]); */
         // Notify rt_sample_acceleration that it can go sample acceleration.
         /* sem_post(&sem_sample_acc); */
 
@@ -476,14 +476,6 @@ ErrorCode_t roll() {
             break;
         } else if (input == "d") {
             s.iController.in.do_checks();
-        } else if (input == "a") {
-            s.iController.in.check_acc();
-        } else if (input == "aa") {
-            s.iController.in.check_angacc();
-        } else if (input == "s") {
-            s.iController.in.check_str();
-        } else if (input == "p") {
-            s.iController.in.check_pos();
         } else if (input == "r") {
             s.iController.in.reset();
         } else if (input == "i") {
@@ -997,7 +989,7 @@ static void* nrt_retrieve_acceleration(void *arg) {
     while (1) {
         // Wait for an up before retrieving acceleration from the sense hat
         // driver.
-        sem_wait(&semaphore["retrieve_acc"]);
+        /* sem_wait(&semaphore["retrieve_acc"]); */
 
         // Retrieve acceleration
         double acc = retrieve_acceleration();
@@ -1058,7 +1050,7 @@ static void rt_checks(void* arg) {
     struct threadargs *args = (struct threadargs *)arg;
 
     // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
-    sem_post(&semaphore["retrieve_acc"]);
+    /* sem_post(&semaphore["retrieve_acc"]); */
     // Notify rt_sample_acceleration that it can go sample acceleration.
     /* sem_post(&sem_sample_acc); */
 
