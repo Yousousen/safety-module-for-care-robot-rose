@@ -84,29 +84,28 @@ component Controller {
 	}
 }
 
-requirement NoOverrideRequirement {
-	on Controller;
-
-	provides IController iController;
-	requires ILEDControl iLEDControl;
-
-	behaviour {
-		bool unsafe_triggered;
-		bool unsafe_acknowledged;
-
-		on do_checks(): {
-			if (unsafe_triggered) {
-				iLEDControl.light_led_red();
-				unsafe_acknowledged = false;
-			// Can only override if unsafe is acknowledged.
-			} else if (unsafe_acknowledged) {
-				iLEDControl.light_led_blue();
-				unsafe_triggered = false;
-			}
-			on reset(): {
-				unsafe_acknowledged = true;
-			}
-		}
-	}
-}
-}
+//requirement NoOverrideRequirement {
+//	on Controller;
+//
+//	provides IController iController;
+//	requires ILEDControl iLEDControl;
+//
+//	behaviour {
+//		bool unsafe_triggered;
+//		bool unsafe_acknowledged;
+//
+//		on do_checks(): {
+//			if (unsafe_triggered) {
+//				iLEDControl.light_led_red();
+//				unsafe_acknowledged = false;
+//			// Can only override if unsafe is acknowledged.
+//			} else if (unsafe_acknowledged) {
+//				iLEDControl.light_led_blue();
+//				unsafe_triggered = false;
+//			}
+//			on reset(): {
+//				unsafe_acknowledged = true;
+//			}
+//		}
+//	}
+//}
