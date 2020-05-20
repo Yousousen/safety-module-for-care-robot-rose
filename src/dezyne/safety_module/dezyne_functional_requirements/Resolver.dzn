@@ -1,0 +1,13 @@
+import DataTypes.dzn;
+
+interface IResolver {
+	in void resolve_ke_from_acc();
+
+	out void BehaviorSafe();
+	out void BehaviorUnsafe();
+
+	behaviour {
+		on resolve_ke_from_acc: BehaviorSafe; 
+		on resolve_ke_from_acc: BehaviorUnsafe;
+	}
+}

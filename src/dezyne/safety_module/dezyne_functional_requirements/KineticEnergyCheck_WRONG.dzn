@@ -1,0 +1,92 @@
+import DataTypes.dzn;
+import ISafetyCheck.dzn;
+import Resolver.dzn;
+import Sensors.dzn;
+
+component KineticEnergyCheck {
+	provides ISafetyCheck iKineticEnergyCheck;
+	requires IAccelerationSensor iAccelerationSensor;
+	requires ISafetyCheck iNext;
+	requires IResolver iResolver;
+
+	behaviour {
+		Behavior myState = Behavior.Safe;
+		bool expected = false;
+		
+		on iKineticEnergyCheck.do_check(): {
+			iAccelerationSensor.retrieve_ke_from_acc();
+			myState = Behavior.Safe;
+			iResolver.resolve_ke_from_acc();
+			iNext.do_check();
+			expected = true;
+		}
+
+		on iResolver.BehaviorUnsafe(),
+			iNext.BehaviorUnsafe(): {
+			// Note Intentionally forget to update system state here
+			//myState = Behavior.Unsafe;
+
+			if(expected) {
+			  expected = false;
+			} else {
+			  iKineticEnergyCheck.BehaviorUnsafe();
+			}
+		}
+		
+		on iResolver.BehaviorSafe(),
+		   iNext.BehaviorSafe(): {
+		   if(expected) {
+		   	 myState = Behavior.Safe;
+			 expected = false;
+		   } else {
+		   	 if(myState == Behavior.Safe) {
+				iKineticEnergyCheck.BehaviorSafe();
+			 } else {
+			    iKineticEnergyCheck.BehaviorUnsafe();
+			 }
+		   }
+		}
+	}
+}
+
+requirement AnyUnsafe {
+	on KineticEnergyCheck;
+	provides ISafetyCheck iKineticEnergyCheck;
+	requires IAccelerationSensor iAccelerationSensor;
+	requires ISafetyCheck iNext;
+	requires IResolver iResolver;
+
+	behaviour {
+		Behavior myState = Behavior.Safe;
+		bool expected = false;
+
+		on iKineticEnergyCheck.do_check(): {
+		   myState = Behavior.Safe;
+		   expected = true;
+		}
+
+		on iNext.BehaviorUnsafe(),
+		   iResolver.BehaviorUnsafe(): {
+		   myState = Behavior.Unsafe;
+		   if(expected) {
+		   	 expected = false;
+		   } else {
+		     iKineticEnergyCheck.BehaviorUnsafe();
+		   }
+		}
+
+		on iNext.BehaviorSafe(),
+		   iResolver.BehaviorSafe(): {
+		   if(expected) {
+		   	  myState = Behavior.Safe;
+			  expected = false;
+		   } else {
+		   	  if(myState == Behavior.Safe) {
+			     iKineticEnergyCheck.BehaviorSafe();
+			  } else {
+			  	 iKineticEnergyCheck.BehaviorUnsafe();
+			  }
+		   }
+		}
+	}
+}

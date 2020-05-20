@@ -1,0 +1,9 @@
+extern unsigned_t $unsigned$;
+extern int_t $int$;
+extern double_t  $double$;
+extern bool_t $bool$;
+extern framebuffer_t $struct fb_t*$;
+extern color_t $char*$;
+
+enum Behavior {Unsafe, Safe};
+enum UnsafeTriggered {No, Yes};

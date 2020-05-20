@@ -1,0 +1,12 @@
+import DataTypes.dzn;
+
+interface ISafetyCheck {
+	in void do_check();
+	out void BehaviorSafe();
+	out void BehaviorUnsafe();
+	
+	behaviour {
+		on do_check: {  BehaviorSafe; }
+		on do_check: {  BehaviorUnsafe; }
+	}
+}
