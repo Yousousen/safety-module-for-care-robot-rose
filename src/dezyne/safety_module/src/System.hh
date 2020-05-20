@@ -59,10 +59,8 @@ struct UnsafeTriggered
 #include <dzn/locator.hh>
 
 #include "Controller.hh"
-#include "AccelerationCheck.hh"
-#include "AngularAccelerationCheck.hh"
-#include "GripArmPositionCheck.hh"
-#include "GripArmStrengthCheck.hh"
+#include "KineticEnergyCheck.hh"
+#include "RotationalEnergyCheck.hh"
 #include "BaseCaseCheck.hh"
 
 
@@ -75,19 +73,15 @@ struct System
 
 
   ::Controller controller;
-  ::AccelerationCheck accelerationCheck;
-  ::AngularAccelerationCheck angularAccelerationCheck;
-  ::GripArmPositionCheck gripArmPositionCheck;
-  ::GripArmStrengthCheck gripArmStrengthCheck;
+  ::KineticEnergyCheck kineticEnergyCheck;
+  ::RotationalEnergyCheck rotationalEnergyCheck;
   ::BaseCaseCheck baseCaseCheck;
 
   ::IController& iController;
 
   ::ILEDControl& iLEDControl;
   ::IAccelerationSensor& iAccelerationSensor;
-  ::IAngularAccelerationSensor& iAngularAccelerationSensor;
-  ::IGripArmPositionSensor& iGripArmPositionSensor;
-  ::IGripArmStrengthSensor& iGripArmStrengthSensor;
+  ::IAngularVelocitySensor& iAngularVelocitySensor;
 
   System(const dzn::locator&);
   void check_bindings() const;

@@ -52,8 +52,8 @@ struct UnsafeTriggered
 #endif // ENUM_UnsafeTriggered
 
 /********************************** COMPONENT *********************************/
-#ifndef GRIPARMSTRENGTHCHECK_HH
-#define GRIPARMSTRENGTHCHECK_HH
+#ifndef KINETICENERGYCHECK_HH
+#define KINETICENERGYCHECK_HH
 
 #include "Sensors.hh"
 #include "ISafetyCheck.hh"
@@ -62,7 +62,7 @@ struct UnsafeTriggered
 
 
 
-struct GripArmStrengthCheck
+struct KineticEnergyCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
@@ -71,29 +71,29 @@ struct GripArmStrengthCheck
 
   ::Behavior::type reply_Behavior;
 
-  std::function<void ()> out_iGripArmStrengthCheck;
+  std::function<void ()> out_iKineticEnergyCheck;
 
-  ::ISafetyCheck iGripArmStrengthCheck;
+  ::ISafetyCheck iKineticEnergyCheck;
 
-  ::IGripArmStrengthSensor iGripArmStrengthSensor;
+  ::IAccelerationSensor iAccelerationSensor;
   ::ISafetyCheck iNext;
   ::IResolver iResolver;
 
 
-  GripArmStrengthCheck(const dzn::locator&);
+  KineticEnergyCheck(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const GripArmStrengthCheck& m)  {
+  friend std::ostream& operator << (std::ostream& os, const KineticEnergyCheck& m)  {
     (void)m;
     return os << "[" << "]" ;
   }
   private:
-  ::Behavior::type iGripArmStrengthCheck_do_check();
+  ::Behavior::type iKineticEnergyCheck_do_check();
 
   ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // GRIPARMSTRENGTHCHECK_HH
+#endif // KINETICENERGYCHECK_HH
 
 /********************************** COMPONENT *********************************/
 

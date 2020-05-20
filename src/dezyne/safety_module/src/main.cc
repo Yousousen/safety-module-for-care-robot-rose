@@ -5,13 +5,13 @@
 // retrieve functions update data from a sensor.
 #include <cstdlib>
 #include <ctime>
-#include <iostream>
 #include <iomanip>
 #include <string>
 #include <thread>
 #include <chrono>
 #include <functional>
 #include <map>
+#include <fstream>
 
 #include <stdint.h>
 #include <fcntl.h>
@@ -32,12 +32,23 @@
 #include <linux/fb.h>
 #include <dzn/runtime.hh>
 #include <dzn/locator.hh>
+#include "RTIMULib.h"
 
+// Own
 #include "System.hh"
 #include "constants.hh"
 #include "calculus.hh"
 #include "physics.hh"
 #include "care_robot.hh"
+
+/*
+ * Maximum allowed values. Exceeding these values is unsafe behavior of the
+ * robot. TODO: Obtain this from file or command line.
+ */
+#define MAX_KE 300
+#define MAX_RE 300
+#define MAX_STR 50
+#define MAX_STR_PAYLOAD 80
 
 /**** Prototypes ****/
 // Run the safety module
@@ -54,16 +65,18 @@ void light_led(unsigned color);
 // Reset the led matrix to low.
 void reset_led();
 
+// TODO: old
 /*** data retrieval functions ***/
 void retrieve_position();
 void retrieve_velocity();
 double retrieve_acceleration();
-void retrieve_angular_velocity();
+void retrieve_angular_displacement();
 void retrieve_angular_acceleration();
 void retrieve_all();
 
 /*** data set functions ***/
 void set_acceleration(double acceleration);
+void set_angular_displacement(double angular_displacement);
 
 bool robot_is_moving();
 bool arm_is_folded();
@@ -71,13 +84,13 @@ bool arm_has_payload();
 
 /*** sampling functions ***/
 void sample_acceleration(double* f, const int nsamples);
-void sample_angular_acceleration(double* f, const int nsamples);
+void sample_angular_displacement(double* f, const int nsamples);
 
 /*** retrievers and resolvers ***/
 void retrieve_ke_from_acc();
 Behavior::type resolve_ke_from_acc();
-void retrieve_re_from_ang_acc();
-Behavior::type resolve_re_from_ang_acc();
+void retrieve_re_from_ang_vel();
+Behavior::type resolve_re_from_ang_vel();
 void retrieve_arm_str();
 Behavior::type resolve_arm_str();
 void retrieve_arm_pos();
@@ -94,21 +107,33 @@ void destruct();
 // Sends colors to nrt_light_led.
 static void* rt_light_led(void* arg);
 
-
 // sets the acceleration, retrieves acceleration from
 // nrt_retrieve_acceleration.
 static void* rt_retrieve_acceleration(void* arg);
 
+// sets the angular velocity, retrieves angular velocity from
+// nrt_retreve_angular_velocity.
+static void* rt_retrieve_angular_displacement(void* arg);
 
-// thread to sample acceleration continuously.
-// Currently does the following (TODO: probably split):
-// - set number of samples
-// - samples acceleration
-// - ∫ a dt
-// - calculates KE
+/* Thread to sample acceleration continuously.
+ * Currently does the following (TODO: probably split):
+ * - set number of samples
+ * - samples acceleration
+ * - ∫ a dt
+ * - calculates kinetic energy
+ */
 static void* rt_sample_acceleration(void* arg);
 
-// check periodically
+/*
+ * Thread to sample angular velocity continuously.
+ * Currently does the following (TODO: probably split):
+ * - set number of samples
+ * - samples angular velocity
+ * - calculates rotational energy
+ */
+static void* rt_sample_angular_velocity(void* arg);
+
+// Thread to execute checks periodically.
 static void rt_checks(void* arg);
 
 // Starts a periodic real-time thread.
@@ -120,9 +145,11 @@ static void *rt_periodic_thread_body(void *arg);
 // blocks on read to read a color from the XDDP socket, indefinitely.
 static void* nrt_light_led(void *arg);
 
-// The acceleration driver.
-// sends current acceleration over XDDP socket to rt_retrieve_acceleration.
-static void* nrt_retrieve_acceleration(void *arg);
+/* The acceleration and angular velocity driver. Sends current acceleration and
+ * current angular velocity over an XDDP socket to rt_retrieve_acceleration and
+ * rt_retrieve_angular_displacement.
+ */
+static void* nrt_retrieve_imu(void *arg);
 
 // Starts a periodic non-real-time thread.
 static void *nrt_periodic_thread_body(void *arg);
@@ -140,11 +167,11 @@ static void fail(const char *reason);
 
 void dzn_light_led(char* color);
 
-static int init_mutexes(std::map<std::string, pthread_mutex_t>& m);
-static int destroy_mutexes(std::map<std::string, pthread_mutex_t>& m);
+static int initialise_mutexes(std::map<std::string, pthread_mutex_t>& m);
+static int destruct_mutexes(std::map<std::string, pthread_mutex_t>& m);
 
-static int init_semaphores(std::map<std::string, sem_t>& s);
-static int destroy_semaphores(std::map<std::string, sem_t>& s);
+static int initialise_semaphores(std::map<std::string, sem_t>& s);
+static int destruct_semaphores(std::map<std::string, sem_t>& s);
 
 // calls function f in a thread safe manner, locking the mutex before the call.
 static inline int safe_call(std::function<void()> f, pthread_mutex_t* mutex) {
@@ -161,21 +188,36 @@ static inline int safe_call(std::function<void()> f, pthread_mutex_t* mutex) {
     }
 }
 
-// Add period microseconds to timespec ts.
-static inline void timespec_add_us(struct timespec *ts, unsigned long long period)
+// Add t microseconds to timespec ts.
+static inline void timespec_add_us(struct timespec *ts, unsigned long long t)
 {
     // (1µs) = 1000 * (1ns)
-    period *= 1000;
-    // Add number of nanoseconds already in ts to period.
-    period += ts->tv_nsec;
+    t *= 1000;
+    // Add number of nanoseconds already in ts to t.
+    t += ts->tv_nsec;
     // To set tv_sec to the correct number we look at how many seconds of
     // nanoseconds there are in period.
-    while (period >= NSEC_PER_SEC) {
-        period -= NSEC_PER_SEC;
+    while (t >= NSEC_PER_SEC) {
+        t -= NSEC_PER_SEC;
 	ts->tv_sec += 1;
     }
     // The nanoseconds left.
-    ts->tv_nsec = period;
+    ts->tv_nsec = t;
+}
+
+// Convert g-force to m/s^2
+static double inline gforce_to_si(double gforce) {
+    return gforce * 9.81;
+}
+
+void write_to_fd(int fd, double what) {
+    int ret;
+    char buf[BUFSIZE];
+    snprintf(buf, BUFSIZE, "%f", what);
+    // Write retrieved acceleration to rt_retrieve_acceleration.
+    ret = write(fd, buf, BUFSIZE);
+    if (ret <= 0)
+        fail("write");
 }
 
 
@@ -183,7 +225,7 @@ static inline void timespec_add_us(struct timespec *ts, unsigned long long perio
 struct Position* position = nullptr;
 struct Velocity* velocity = nullptr;
 struct Acceleration* acceleration = nullptr;
-struct AngularVelocity* angular_velocity = nullptr;
+struct AngularDisplacement* angular_displacement = nullptr;
 struct AngularAcceleration* angular_acceleration = nullptr;
 
 double kinetic_energy;
@@ -196,6 +238,10 @@ CareRobotRose* rose = nullptr;
 // For LED Matrix 
 struct fb_t *fb;
 int fbfd = 0;
+
+// For sensors
+RTIMU *imu;
+int imu_poll_interval;
 
 static char color[SIZE];
 
@@ -212,14 +258,15 @@ auto main() -> int {
 }
 
 
-static int init_semaphores(std::map<std::string, sem_t>& s) {
+static int initialise_semaphores(std::map<std::string, sem_t>& s) {
     // Make semaphores
     s["led"];
     s["retrieve_acc"];
-    s["retrieve_angacc"];
+    s["retrieve_ang_disp"];
     s["retrieve_str"];
     s["retrieve_pos"];
     s["sample_acc"];
+    s["sample_ang_vel"];
 
     // Initialise semaphores.
     for (auto it = s.begin(); it != s.end(); ++it) {
@@ -231,7 +278,7 @@ static int init_semaphores(std::map<std::string, sem_t>& s) {
     return OK;
 }
 
-static int destroy_semaphores(std::map<std::string, sem_t>& s) {
+static int destruct_semaphores(std::map<std::string, sem_t>& s) {
     for (auto it = s.begin(); it != s.end(); ++it) {
         if (0 != (errno = sem_destroy(&it->second))) {
             perror("pthread_mutex_destroy() failed");
@@ -241,18 +288,18 @@ static int destroy_semaphores(std::map<std::string, sem_t>& s) {
     return OK;
 }
 
-static int init_mutexes(std::map<std::string, pthread_mutex_t>& m) {
+static int initialise_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     // Make mutex
-    mutex["color"];
-    mutex["fb"];
-    mutex["acc"];
-    mutex["angacc"];
-    mutex["str"];
-    mutex["pos"];
-    mutex["ke"];
-    mutex["re"];
-    mutex["str"];
-    mutex["pos"];
+    m["color"];
+    m["fb"];
+    m["acc"];
+    m["ang_disp"];
+    m["str"];
+    m["pos"];
+    m["ke"];
+    m["re"];
+    m["str"];
+    m["pos"];
 
     // Initialise mutexes.
     for (auto it = m.begin(); it != m.end(); ++it) {
@@ -264,7 +311,7 @@ static int init_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     return OK;
 }
 
-static int destroy_mutexes(std::map<std::string, pthread_mutex_t>& m) {
+static int destruct_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     for (auto it = m.begin(); it != m.end(); ++it) {
         if (0 != (errno = pthread_mutex_destroy(&it->second))) {
             perror("pthread_mutex_destroy() failed");
@@ -273,7 +320,6 @@ static int destroy_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     }
     return OK;
 }
-
 
 ErrorCode_t roll() {
     // Initialise dezyne locator and runtime.
@@ -295,7 +341,7 @@ ErrorCode_t roll() {
         return type;
     };
 
-    iResolver.in.resolve_re_from_ang_acc = []() -> Behavior::type {
+    iResolver.in.resolve_re_from_ang_vel = []() -> Behavior::type {
         int r;
         Behavior::type type;
         double re;
@@ -347,12 +393,16 @@ ErrorCode_t roll() {
     dzn::runtime runtime;
     locator.set(runtime);
     locator.set(iResolver);
+    auto output = std::ofstream("dzn_output.log");
+    locator.set(static_cast<std::ostream&>(output));
 
     System s(locator);
     s.dzn_meta.name = "System";
 
 
-    /*** Bind native functions ***/
+    /*
+     * Bind dezyne functions with C++ functions.
+     */
     /* s.iController.out.what_triggered = what_triggered; */
     s.iLEDControl.in.initialise_framebuffer = initialise_framebuffer;
     s.iLEDControl.in.destruct_framebuffer = destruct_framebuffer;
@@ -360,25 +410,66 @@ ErrorCode_t roll() {
     s.iLEDControl.in.light_led_blue = dzn_light_led;
     s.iLEDControl.in.reset_led = reset_led;
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
-    s.iAngularAccelerationSensor.in.retrieve_re_from_ang_acc =
-        retrieve_re_from_ang_acc;
-    s.iGripArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos;
-    s.iGripArmStrengthSensor.in.retrieve_arm_str = retrieve_arm_str;
+    s.iAngularVelocitySensor.in.retrieve_re_from_ang_vel =
+        retrieve_re_from_ang_vel;
+    /* s.iGripArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos; */
+    /* s.iGripArmStrengthSensor.in.retrieve_arm_str = retrieve_arm_str; */
 
     // Check bindings
     s.check_bindings();
 
-    // Initialise framebuffer
+    /*
+     * Initialise system
+     */
     s.iController.in.initialise();
+
+    // Initialse inertial measurement unit related matters
+    RTIMUSettings *settings = new RTIMUSettings("./RTIMULib");
+    imu = RTIMU::createIMU(settings);
+    if ((imu == NULL) || (imu->IMUType() == RTIMU_TYPE_NULL)) {
+        printf("No IMU found\n");
+        exit(1);
+    }
+
+    //  This is an opportunity to manually override any settings before the
+    //  call IMUInit
+
+    //  Set up IMU
+    imu->IMUInit();
+
+    //  This is a convenient place to change fusion parameters.
+    imu->setSlerpPower(0.02);
+    imu->setGyroEnable(true);
+    imu->setAccelEnable(true);
+    imu->setCompassEnable(true);
+
+    // Set poll interval.
+    imu_poll_interval = imu->IMUGetPollInterval() * 1E5;
 
     /*** Threads related ***/
     struct sched_param rtparam = { .sched_priority = 42 };
     pthread_attr_t rtattr, nrtattr;
     sigset_t set;
     int sig;
-    static pthread_t th_rt_light_led, th_rt_ret_acc, th_rt_sample_acc, th_rt_checks;
-    static pthread_t th_nrt_light_led, th_nrt_ret_acc;
+
+    // real-time thread that starts safety checks periodically.
+    static pthread_t th_rt_checks;
+    // real-time thread for lighting the LED matrix.
+    static pthread_t th_rt_light_led;
+    // real-time threads for retrieving data.
+    static pthread_t th_rt_ret_acc, th_rt_ret_ang_disp;
+    // real-time threads for sampling sensor data.
+    static pthread_t th_rt_sample_acc, th_rt_sample_ang_disp;
+
+    // non-real-time thread for lighting the LED matrix.
+    static pthread_t th_nrt_light_led;
+    // non-real-time thread for retrieving sensor data from the IMU.
+    static pthread_t th_nrt_ret_imu;
+
+    // Information about periodic  threads.
     static struct th_info th_info;
+
+    // Arguments to threads.
     struct threadargs threadargs;
 
     sigemptyset(&set);
@@ -397,20 +488,14 @@ ErrorCode_t roll() {
     pthread_attr_setschedpolicy(&rtattr, SCHED_FIFO);
     pthread_attr_setschedparam(&rtattr, &rtparam);
 
-    // Initialise mutexes.
-    init_mutexes(mutex);
+    // Initialise mutexes
+    initialise_mutexes(mutex);
     // Initialise semaphores
-    init_semaphores(semaphore);
+    initialise_semaphores(semaphore);
 
     /*** Start threads ***/
     // Start thread rt_light_led
     errno = pthread_create(&th_rt_light_led, &rtattr, &rt_light_led, NULL);
-    if (errno)
-        fail("pthread_create");
-
-    // Start thread nrt_light_led
-    errno = pthread_create(&th_nrt_light_led, &nrtattr, &nrt_light_led, (void*)
-            &threadargs);
     if (errno)
         fail("pthread_create");
 
@@ -420,9 +505,9 @@ ErrorCode_t roll() {
     if (errno)
         fail("pthread_create");
 
-    // Start thread nrt_retrieve_acceleration
-    errno = pthread_create(&th_nrt_ret_acc, &nrtattr,
-            &nrt_retrieve_acceleration, NULL);
+    // Start thread rt_retrieve_angular_displacement
+    errno = pthread_create(&th_rt_ret_ang_disp, &rtattr,
+            &rt_retrieve_angular_displacement, &threadargs);
     if (errno)
         fail("pthread_create");
 
@@ -432,20 +517,44 @@ ErrorCode_t roll() {
     if (errno)
         fail("pthread_create");
 
+    // Start thread rt_sample_angular_velocity
+    errno = pthread_create(&th_rt_sample_ang_disp, &rtattr,
+            &rt_sample_angular_velocity, &threadargs);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread nrt_light_led
+    errno = pthread_create(&th_nrt_light_led, &nrtattr, &nrt_light_led, (void*)
+            &threadargs);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread nrt_retrieve_imu
+    errno = pthread_create(&th_nrt_ret_imu, &nrtattr,
+            &nrt_retrieve_imu, NULL);
+    if (errno)
+        fail("pthread_create");
+
+
+
     printf("Started running indefinitely.\n");
     std::string input;
 #if PERIODIC_CHECKS
     printf("press: q to quit, r to reset\n");
 
     th_info.body = rt_checks;
-    th_info.period = 1E6*4;   // every 4 second
+    /* th_info.period = 1E6*4;   // 4s */
+    /* th_info.period = 1E6/4;      // 250ms */
+    th_info.period = imu_poll_interval;      // poll interval based time.
     th_info.s = &s;
-    // Start thread rt_sample_acceleration
+    // Start periodic real-time threads.
     errno = pthread_create(&th_rt_checks, &rtattr, &rt_periodic_thread_body,
             &th_info);
     if (errno)
         fail("pthread_create");
 
+    // The safety module runs so long we are in this loop. The LED light can be
+    // reset by inputting 'r'.  We quit the loop correctly by inputting 'q'.
     while (1) {
         std::cin >> input;
         /* input = "a"; */
@@ -493,30 +602,32 @@ ErrorCode_t roll() {
 
     // Kill threads
     pthread_cancel(th_nrt_light_led);
-    pthread_cancel(th_nrt_ret_acc);
+    pthread_cancel(th_nrt_ret_imu);
     pthread_cancel(th_rt_light_led);
     pthread_cancel(th_rt_ret_acc);
-    pthread_cancel(th_rt_sample_acc);
+    pthread_cancel(th_rt_ret_ang_disp);
+    pthread_cancel(th_rt_sample_ang_disp);
 
 #if PERIODIC_CHECKS
     pthread_cancel(th_rt_checks);
 #endif
 
     pthread_join(th_nrt_light_led, NULL);
-    pthread_join(th_nrt_ret_acc, NULL);
+    pthread_join(th_nrt_ret_imu, NULL);
     pthread_join(th_rt_light_led, NULL);
     pthread_join(th_rt_ret_acc, NULL);
-    pthread_join(th_rt_sample_acc, NULL);
+    pthread_join(th_rt_ret_ang_disp, NULL);
+    pthread_join(th_rt_sample_ang_disp, NULL);
 
 #if PERIODIC_CHECKS
     pthread_join(th_rt_checks, NULL);
 #endif
 
     // Destroy mutexes
-    destroy_mutexes(mutex);
+    destruct_mutexes(mutex);
 
     // Destroy semaphores
-    destroy_semaphores(semaphore);
+    destruct_semaphores(semaphore);
 
     return OK;
 }
@@ -529,37 +640,37 @@ void initialise() {
     if (CSV_HAS_POSITION) {
         // Load from CSV.
     } else {
-        position = new Position(11.0, 12.0, 13.0, 14.0);
+        position = new Position(0,0,0,0);
     }
 
     if (CSV_HAS_VELOCITY) {
         // Load from CSV.
     } else {
-        velocity = new Velocity(11.0, 12.0, 13.0, 14.0);
+        velocity = new Velocity(0,0,0,0);
     }
 
     if (CSV_HAS_ACCELERATION) {
         // Load from CSV.
     } else {
-        acceleration = new Acceleration(11.0, 12.0, 13.0, 14.0);
+        acceleration = new Acceleration(0,0,0,0);
     }
 
     if (CSV_HAS_ANGULAR_ACCELERATION) {
         // Load from CSV.
     } else {
-        angular_acceleration = new AngularAcceleration(11.0, 12.0, 13.0, 14.0);
+        angular_acceleration = new AngularAcceleration(0,0,0,0);
     }
 
     if (CSV_HAS_ANGULAR_VELOCITY) {
         // Load from CSV.
     } else {
-        angular_velocity = new AngularVelocity(11.0, 12.0, 13.0, 14.0);
+        angular_displacement = new AngularDisplacement(0,0,0,0);
     }
 
     if (CSV_HAS_ANGULAR_ACCELERATION) {
         // Load from CSV.
     } else {
-        angular_acceleration = new AngularAcceleration(11.0, 12.0, 13.0, 14.0);
+        angular_acceleration = new AngularAcceleration(0,0,0,0);
     }
 
 }
@@ -569,7 +680,7 @@ void destruct() {
     if (position != nullptr)             delete position;
     if (velocity != nullptr)             delete velocity;
     if (acceleration != nullptr)         delete acceleration;
-    if (angular_velocity != nullptr)     delete angular_velocity;
+    if (angular_displacement != nullptr)     delete angular_displacement;
     if (angular_acceleration != nullptr) delete angular_acceleration;
 }
 
@@ -679,11 +790,17 @@ void set_acceleration(double acceleration) {
     ::acceleration->change = ::acceleration->current - previous;
 }
 
-void retrieve_angular_velocity() {
-    auto previous = angular_velocity->current;
+void set_angular_displacement(double angular_displacement) {
+    auto previous = ::angular_displacement->current;
+    ::angular_displacement->current = angular_displacement;
+    ::angular_displacement->change = ::angular_displacement->current - previous;
+}
+
+void retrieve_angular_displacement() {
+    auto previous = angular_displacement->current;
     srand((unsigned)time(NULL));
-    angular_velocity->current = rand() % 5 + 1;
-    angular_velocity->change = angular_velocity->current - previous;
+    angular_displacement->current = rand() % 5 + 1;
+    angular_displacement->change = angular_displacement->current - previous;
 }
 
 
@@ -699,7 +816,7 @@ void retrieve_all() {
     retrieve_position();
     retrieve_velocity();
     retrieve_acceleration();
-    retrieve_angular_velocity();
+    retrieve_angular_displacement();
     retrieve_angular_acceleration();
 }
 
@@ -714,18 +831,18 @@ void sample_acceleration(double* f, const int nsamples) {
         if (r != OK) exit(EXIT_FAILURE);
         f[i] = curr;
 
-        std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
+        /* std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO)); */
     }
     printf("%d, ", i);
 }
 
 
-void sample_angular_acceleration(double* f, const int nsamples) {
+void sample_angular_displacement(double* f, const int nsamples) {
     printf("# rectangles: ");
     int i;
     for (i = 0; i < nsamples; ++i) {
-        retrieve_angular_acceleration();
-        f[i] = angular_acceleration->current;
+        retrieve_angular_displacement();
+        f[i] = angular_displacement->current;
         /* std::this_thread::sleep_for(std::chrono::milliseconds(CHANGE_IN_TIME_MS)); */
         std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
     }
@@ -734,31 +851,13 @@ void sample_angular_acceleration(double* f, const int nsamples) {
 
 
 void retrieve_ke_from_acc() {
-    // Currently rt_sample_acceleration sets kinetic energy, so wee need not do
+    // Currently rt_sample_acceleration sets kinetic energy, so we need not do
     // anything here.
 }
 
-void retrieve_re_from_ang_acc() {
-    // numbers of seconds to sample.
-    const double nseconds = 0.5;
-    // numbers of samples.
-    const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
-    printf("nsamples: %d\n", nsamples);
-
-    // Save acceleration in here.
-    double a[nsamples];
-
-    printf(">>> sampling angular acceleration\n\n");
-    sample_angular_acceleration(a, nsamples);
-    printf("<<< done\n\n");
-
-    // Numerical integration
-    double angular_velocity = Calculus::trapezoidal_integral(a, nsamples);
-    printf("angular velocity = %f\n", angular_velocity);
-
-    // Calculate kinetic energy
-    rotational_energy = 0.5 * INERTIAL_MASS * angular_velocity * angular_velocity;
-    printf("rotational energy = %f\n", rotational_energy);
+void retrieve_re_from_ang_vel() {
+    // Currently rt_sample_angular_velocity sets rotational energy, so we
+    // need not do anything here.
 }
 
 void retrieve_arm_str() {
@@ -870,7 +969,7 @@ static void* rt_light_led(void* arg) {
         ret = sendto(s, msg, len, 0, NULL, 0);
         if (ret != len)
             fail("sendto");
-        printf("%s: sent %d bytes, \"%.*s\"\n", __FUNCTION__, ret, ret, msg);
+        /* printf("%s: sent %d bytes, \"%.*s\"\n", __FUNCTION__, ret, ret, msg); */
     }
     return NULL;
 }
@@ -952,15 +1051,16 @@ static void* rt_retrieve_acceleration(void* arg) {
         fail("bind");
 
     /*
-     * Send a datagram to the NRT endpoint via the proxy.
-     * We may pass a NULL destination address, since a
-     * bound socket is assigned a default destination
-     * address matching the binding address (unless
-     * connect(2) was issued before bind(2), in which case
-     * the former would prevail).
+     * Retrieve a datagrams from the NRT endpoint via the proxy.
      */
     while (1) {
         /* Read packets echoed by the non-real-time thread */
+        /*
+         * This call blocks if there is no data to receive. This however is not
+         * a problem as sample acceleration is not depended on this thread
+         * blocking or not. That is, sample acceleration can do its work
+         * independent of this thread.
+         */
         ret = recvfrom(s, buf, sizeof(buf), 0, NULL, 0);
         if (ret <= 0)
             fail("recvfrom");
@@ -974,51 +1074,89 @@ static void* rt_retrieve_acceleration(void* arg) {
     return NULL;
 }
 
-static void* nrt_retrieve_acceleration(void *arg) {
+static void* rt_retrieve_angular_displacement(void* arg) {
+    int n = 0;
+    int len;
+    int ret;
+    int r;
+    int s;
+    char buf[BUFSIZE];
+    struct sockaddr_ipc saddr;
+    size_t poolsz;
+
     struct threadargs *args = (struct threadargs *)arg;
 
-    char buf[BUFSIZE], *devname;
-    int fd, ret;
-    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_ACC) < 0)
-        fail("asprintf");
-    fd = open(devname, O_RDWR);
-    free(devname);
-    if (fd < 0)
-        fail("open");
-
-    while (1) {
-        // Wait for an up before retrieving acceleration from the sense hat
-        // driver.
-        /* sem_wait(&semaphore["retrieve_acc"]); */
-
-        // Retrieve acceleration
-        double acc = retrieve_acceleration();
-        snprintf(buf, BUFSIZE, "%f", acc);
-
-        /* Write retrieved acceleration to rt_retrieve_acceleration. */
-        ret = write(fd, buf, BUFSIZE);
-        if (ret <= 0)
-            fail("write");
+    // Initialise XDDP
+    /*
+     * Get a datagram socket to bind to the RT endpoint. Each
+     * endpoint is represented by a port number within the XDDP
+     * protocol namespace.
+     */
+    s = socket(AF_RTIPC, SOCK_DGRAM, IPCPROTO_XDDP);
+    if (s < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
     }
 
+    /*
+     * Set a local 16k pool for the RT endpoint. Memory needed to
+     * convey datagrams will be pulled from this pool, instead of
+     * Xenomai's system pool.
+     */
+    poolsz = 16384; /* bytes */
+    ret = setsockopt(s, SOL_XDDP, XDDP_POOLSZ, &poolsz, sizeof(poolsz));
+    if (ret)
+        fail("setsockopt");
+    /*
+     * Bind the socket to the port, to setup a proxy to channel
+     * traffic to/from the Linux domain.
+     *
+     * saddr.sipc_port specifies the port number to use.
+     */
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sipc_family = AF_RTIPC;
+    saddr.sipc_port = XDDP_PORT_RET_ANG_DISP;
+    ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
+    if (ret)
+        fail("bind");
+
+    /*
+     * Retrieve a datagrams from the NRT endpoint via the proxy.
+     */
+    while (1) {
+        // Read packets echoed by the non-real-time thread.
+        /*
+         * This call blocks if there is no data to receive. This however is not
+         * a problem as sample angular velocity is not depended on this thread
+         * blocking or not. That is, sample angular velocity can do its work
+         * independent of this thread.
+         */
+        ret = recvfrom(s, buf, sizeof(buf), 0, NULL, 0);
+        if (ret <= 0)
+            fail("recvfrom");
+        /* printf("   => \"%.*s\" received by peer\n", ret, buf); */
+        n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
+
+        // Set angular displacement
+        r = safe_call([&buf]() { set_angular_displacement(atof(buf)); },
+                &mutex["ang_disp"]);
+        if (r != OK) exit(EXIT_FAILURE);
+    }
     return NULL;
 }
 
 static void* rt_sample_acceleration(void* arg) {
     int r;
     // numbers of seconds to sample.
-    const double nseconds = 0.5;
+    const double nseconds = 0.1;
     // numbers of samples.
     const int nsamples = (int) (nseconds / CHANGE_IN_TIME);
-    /* printf("nsamples: %d\n", nsamples); */
 
     // Save acceleration in here.
     double a[nsamples];
 
     while (1) {
         /* sem_wait(&sem_sample_acc); */
-        /* printf(">>> sampling acceleration\n\n"); */
-        /* printf("# rectangles: "); */
         for (int i = 0; i < nsamples; ++i) {
             double curr;
             // Get acceleration
@@ -1028,17 +1166,17 @@ static void* rt_sample_acceleration(void* arg) {
             a[i] = curr;
 
             std::this_thread::sleep_for(std::chrono::microseconds(CHANGE_IN_TIME_MICRO));
-            /* printf("%d, ", i); */
         }
-        /* printf("\n"); */
-        /* printf("\n<<< sampling acceleration done\n\n"); */
 
-        // Numerical integration
-        double velocity = Calculus::trapezoidal_integral(a, nsamples);
-        /* printf("velocity = %f\n", velocity); */
+        // Numerically integrate to determine change in velocity from
+        // acceleration.
+        double change_in_velocity = Calculus::trapezoidal_integral(a, nsamples);
 
+        // Calculate kinetic energy from Δv.
         r = safe_call( [=]() {
-                    kinetic_energy = 0.5 * INERTIAL_MASS * velocity * velocity;
+                    // KE = (1/2)mv^2
+                    kinetic_energy = 0.5 * INERTIAL_MASS * change_in_velocity *
+                    change_in_velocity;
                     printf("ke = %g\n", kinetic_energy);
                     },
                     &mutex["ke"]);
@@ -1046,14 +1184,141 @@ static void* rt_sample_acceleration(void* arg) {
     }
 }
 
+static void* rt_sample_angular_velocity(void* arg) {
+    int r;
+    // Δt (μs)
+    const int change_in_time = imu_poll_interval;
+    while (1) {
+        /* sem_wait(&semaphore["sample_ang_vel"]); */
+
+        double ang_disp1, ang_disp2;
+
+        // Get Θ
+        r = safe_call([&ang_disp1]() { ang_disp1 = angular_displacement->current; },
+                &mutex["ang_disp"]);
+        if (r != OK) exit(EXIT_FAILURE);
+
+        // Wait for change_in_time microseconds.
+        std::this_thread::sleep_for(std::chrono::microseconds(change_in_time));
+
+        // Do it again.
+        r = safe_call([&ang_disp2]() { ang_disp2 = angular_displacement->current; },
+                &mutex["ang_disp"]);
+        if (r != OK) exit(EXIT_FAILURE);
+
+
+        // Calculate ΔΘ
+        double change_in_ang_disp = ang_disp2 - ang_disp1;
+        const double change_in_time_s = change_in_time * 1E-6;
+        double ang_vel = change_in_ang_disp / change_in_time_s;
+        r = safe_call( [=]() {
+                    // RE = (1/2)Iω^2
+                    rotational_energy = 0.5 * MOMENT_OF_INERTIA *
+                    ang_vel * ang_vel;
+                    printf("re = %g\n", rotational_energy);
+                    fflush(stdout);
+                    },
+                    &mutex["re"]);
+        if (r != OK) exit(EXIT_FAILURE);
+    }
+}
+
+static void* nrt_retrieve_imu(void *arg) {
+    struct threadargs *args = (struct threadargs *)arg;
+
+    char *devname;
+    int fd_acc, fd_ang_disp, ret;
+
+    // file descriptor for acceleration.
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_ACC) < 0)
+        fail("asprintf");
+    fd_acc = open(devname, O_RDWR);
+    free(devname);
+    if (fd_acc < 0)
+        fail("open");
+
+    // file descriptor for angular velocity.
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_ANG_DISP) < 0)
+        fail("asprintf");
+    fd_ang_disp = open(devname, O_RDWR);
+    free(devname);
+    if (fd_ang_disp < 0)
+        fail("open");
+
+    while (1) {
+        double acc_largest, accx, accy, accz;
+        double ang_disp_largest, ang_dispx, ang_dispy, ang_dispz;
+        // Wait for an up before retrieving acceleration from the sense hat
+        // driver.
+        /* sem_wait(&semaphore["retrieve_acc"]); */
+
+        // Poll at the rate recommended by the IMU.
+        usleep(imu_poll_interval);
+
+        while (imu->IMURead()) {
+            RTIMU_DATA imuData = imu->getIMUData();
+            accx = gforce_to_si(imuData.accel.x());
+            accy = gforce_to_si(imuData.accel.y());
+            accz = gforce_to_si(imuData.accel.z()-1); // -1 subtracts gravity.
+            // angular velocity is in radians.
+            ang_dispx = imuData.fusionPose.x();
+            ang_dispy = imuData.fusionPose.y();
+            ang_dispz = imuData.fusionPose.z();
+        }
+
+        /*
+         * For both acceleration ang angular velocity, determine which axis had
+         * the largest increase. The largest increase will be used to
+         * respectively calculate kinetic energy and rotational energy.
+         */
+        accx = fabs(accx);
+        accy = fabs(accy);
+        accz = fabs(accz);
+        ang_dispx = fabs(ang_dispx);
+        ang_dispy = fabs(ang_dispy);
+        ang_dispz = fabs(ang_dispz);
+
+        if (accx > accy && accx > accz)
+            acc_largest = accx;
+        else if (accy > accx && accy > accz)
+            acc_largest = accy;
+        else
+            acc_largest = accz;
+
+        if (ang_dispx > ang_dispy && ang_dispx > ang_dispz)
+            ang_disp_largest = ang_dispx;
+        else if (ang_dispy > ang_dispx && ang_dispy > ang_dispz)
+            ang_disp_largest = ang_dispy;
+        else
+            ang_disp_largest = ang_dispz;
+
+        // Write retrieved acceleration to rt_retrieve_acceleration.
+        write_to_fd(fd_acc, acc_largest);
+        // Write retrieved angular velocity to rt_retrieve_angular_displacement.
+        write_to_fd(fd_ang_disp, ang_disp_largest);
+    }
+
+    return NULL;
+}
+
 static void rt_checks(void* arg) {
     struct threadargs *args = (struct threadargs *)arg;
 
     // Notify nrt_retrieve_acceleration that it can retrieve acceleration.
     /* sem_post(&semaphore["retrieve_acc"]); */
+    // Notify nrt_retrieve_imu that it can retrieve acceleration.
+    /* sem_post(&semaphore["retrieve_ang_disp"]); */
     // Notify rt_sample_acceleration that it can go sample acceleration.
     /* sem_post(&sem_sample_acc); */
+    // Notify rt_sample_angular_velocity that it can go sample angular
+    // velocity.
+    /* sem_post(&semaphore["sample_ang_vel"]); */
 
+    /*
+     * Since do_checks is implemented in Dezyne, if we want to disable one
+     * check we have to remove the check from the linked list in System.dzn.
+     * This is a consequence of making the system more generic. 
+     */
     (args->s)->iController.in.do_checks();
 }
 
@@ -1062,7 +1327,7 @@ static void *rt_periodic_thread_body(void *arg) {
     struct th_info* the_thread = (struct th_info*) arg;
     struct threadargs threadargs;
 
-    // copy over dezyne system pointer
+    // Copy over dezyne system pointer
     threadargs.s = the_thread->s;
 
     /* ptask = start_periodic_timer(2000000, the_thread->period); */
@@ -1116,15 +1381,17 @@ struct periodic_task *start_periodic_timer(unsigned long long offset_in_us,
         return NULL;
     }
 
+    // Current time is added first, we let the thread wait for its next
+    // activation using absolute time.
     clock_gettime(CLOCK_REALTIME, &ptask->ts);
     timespec_add_us(&ptask->ts, offset_in_us);
     ptask->period = period;
-
     return ptask;
 }
 
 void wait_next_activation(struct periodic_task *ptask) {
     // Suspend the thread until the time value specified by &t->ts has elapsed.
+    // Note the use of absolute time.
     clock_nanosleep(CLOCK_REALTIME, TIMER_ABSTIME, &ptask->ts, NULL);
     // Add another period to the time specification.
     timespec_add_us(&ptask->ts, ptask->period);

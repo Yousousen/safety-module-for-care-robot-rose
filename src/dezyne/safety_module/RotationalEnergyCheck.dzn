@@ -1,18 +1,11 @@
 import DataTypes.dzn;
 import ISafetyCheck.dzn;
 import Resolver.dzn;
+import Sensors.dzn;
 
-interface IAngularAccelerationSensor {
-	in void retrieve_re_from_ang_acc();
-	
-	behaviour {
-		on retrieve_re_from_ang_acc: {}
-	}
-}
-
-component AngularAccelerationCheck {
-	requires IAngularAccelerationSensor iAngularAccelerationSensor;
-	provides ISafetyCheck iAngularAccelerationCheck;
+component RotationalEnergyCheck {
+	requires IAngularVelocitySensor iAngularVelocitySensor;
+	provides ISafetyCheck iRotationalEnergyCheck;
 	requires ISafetyCheck iNext;
 	requires injected IResolver iResolver;
 
@@ -26,11 +19,11 @@ component AngularAccelerationCheck {
 			return Behavior.Safe;
 		}
 		
-		on iAngularAccelerationCheck.do_check(): {
+		on iRotationalEnergyCheck.do_check(): {
 			Behavior currSafetyState = Behavior.Safe;
 			// TODO: Let the data go through the retriever here.
-			iAngularAccelerationSensor.retrieve_re_from_ang_acc();
-			currSafetyState = iResolver.resolve_re_from_ang_acc();
+			iAngularVelocitySensor.retrieve_re_from_ang_vel();
+			currSafetyState = iResolver.resolve_re_from_ang_vel();
 			
 			Behavior nextSafetyState = iNext.do_check();
 			Behavior res = and_safety_states(currSafetyState, nextSafetyState); 
@@ -40,9 +33,9 @@ component AngularAccelerationCheck {
 }
 
 //requirement AnyUnsafe {
-//	provides IRequirement iAngularAccelerationCheck;
+//	provides IRequirement iRotationalEnergyCheck;
 //	// component
-//	on AngularAccelerationCheck;
+//	on RotationalEnergyCheck;
 //
 //	behaviour {
 //		Behavior b1;

@@ -5,6 +5,7 @@
 #include "System.hh"
 
 
+// TODO: Remove the notions of CSV.
 // Read boundary values from CSV file.
 #define CSV_HAS_POSITION 0
 #define CSV_HAS_VELOCITY 0
@@ -14,12 +15,11 @@
 
 // Interial mass of the care robot with safety module attached (kg).
 #define INERTIAL_MASS 100
-
-// Maximum allowed kinetic energy
-#define MAX_KE 150
-#define MAX_RE 250
-#define MAX_STR 50
-#define MAX_STR_PAYLOAD 80
+// Approximation of robot side length
+#define RADIUS 1
+// Approximate moment of inertia like robot is a rectangular block, rotating
+// around its center of mass (kg m^2).
+#define MOMENT_OF_INERTIA (0.5 * INERTIAL_MASS * RADIUS * RADIUS)
 
 // For sampling and calculus
 // Δt (ms)
@@ -30,7 +30,6 @@
 /* #define CHANGE_IN_TIME (CHANGE_IN_TIME_MS * 1E-3) */
 #define CHANGE_IN_TIME (CHANGE_IN_TIME_MICRO * 1E-6)
 
-
 // Macros to control framebuffer device for led matrix.
 #define DEV_INPUT_EVENT "/dev/input"
 #define EVENT_DEV_NAME "event"
@@ -40,7 +39,7 @@
 #define XDDP_PORT_LIGHT_LED 0
 #define XDDP_PORT_RESET_LED 1
 #define XDDP_PORT_RET_ACC 2
-#define XDDP_PORT_RET_ANGACC 3
+#define XDDP_PORT_RET_ANG_DISP 3
 #define XDDP_PORT_RET_STR 4
 #define XDDP_PORT_RET_POS 5
 

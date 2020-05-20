@@ -14,4 +14,3 @@ namespace Calculus {
         return (double) ((CHANGE_IN_TIME/2) * sum);
     }
 }
-

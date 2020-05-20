@@ -1,14 +1,7 @@
 import DataTypes.dzn;
 import ISafetyCheck.dzn;
 import Resolver.dzn;
-
-interface IGripArmStrengthSensor {
-	in void retrieve_arm_str();
-	
-	behaviour {
-		on retrieve_arm_str: {}
-	}
-}
+import Sensors.dzn;
 
 component GripArmStrengthCheck {
 	requires IGripArmStrengthSensor iGripArmStrengthSensor;

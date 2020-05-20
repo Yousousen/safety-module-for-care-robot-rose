@@ -10,23 +10,23 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#include "AccelerationCheck.hh"
+#include "RotationalEnergyCheck.hh"
 
 #include <dzn/locator.hh>
 #include <dzn/runtime.hh>
 
 
 
-AccelerationCheck::AccelerationCheck(const dzn::locator& dzn_locator)
-: dzn_meta{"","AccelerationCheck",0,0,{& iAccelerationSensor.meta,& iNext.meta,& iResolver.meta},{},{[this]{iAccelerationSensor.check_bindings();},[this]{iAccelerationCheck.check_bindings();},[this]{iNext.check_bindings();},[this]{iResolver.check_bindings();}}}
+RotationalEnergyCheck::RotationalEnergyCheck(const dzn::locator& dzn_locator)
+: dzn_meta{"","RotationalEnergyCheck",0,0,{& iAngularVelocitySensor.meta,& iNext.meta,& iResolver.meta},{},{[this]{iAngularVelocitySensor.check_bindings();},[this]{iRotationalEnergyCheck.check_bindings();},[this]{iNext.check_bindings();},[this]{iResolver.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
 , iResolver(dzn_locator.get< IResolver>())
 
-, iAccelerationCheck({{"iAccelerationCheck",this,&dzn_meta},{"",0,0}})
+, iRotationalEnergyCheck({{"iRotationalEnergyCheck",this,&dzn_meta},{"",0,0}})
 
-, iAccelerationSensor({{"",0,0},{"iAccelerationSensor",this,&dzn_meta}})
+, iAngularVelocitySensor({{"",0,0},{"iAngularVelocitySensor",this,&dzn_meta}})
 , iNext({{"",0,0},{"iNext",this,&dzn_meta}})
 
 
@@ -35,19 +35,19 @@ AccelerationCheck::AccelerationCheck(const dzn::locator& dzn_locator)
 
 
 
-  iAccelerationCheck.in.do_check = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iAccelerationCheck) = false; return iAccelerationCheck_do_check();}, this->iAccelerationCheck.meta, "do_check");};
+  iRotationalEnergyCheck.in.do_check = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iRotationalEnergyCheck) = false; return iRotationalEnergyCheck_do_check();}, this->iRotationalEnergyCheck.meta, "do_check");};
 
 
 
 }
 
-::Behavior::type AccelerationCheck::iAccelerationCheck_do_check()
+::Behavior::type RotationalEnergyCheck::iRotationalEnergyCheck_do_check()
 {
 
   {
     ::Behavior::type currSafetyState = ::Behavior::Safe;
-    this->iAccelerationSensor.in.retrieve_ke_from_acc();
-    currSafetyState = this->iResolver.in.resolve_ke_from_acc();
+    this->iAngularVelocitySensor.in.retrieve_re_from_ang_vel();
+    currSafetyState = this->iResolver.in.resolve_re_from_ang_vel();
     ::Behavior::type nextSafetyState = this->iNext.in.do_check();
     ::Behavior::type res = and_safety_states(currSafetyState,nextSafetyState);
     { this->reply_Behavior = res; }
@@ -56,7 +56,7 @@ AccelerationCheck::AccelerationCheck(const dzn::locator& dzn_locator)
   return this->reply_Behavior;
 }
 
-::Behavior::type AccelerationCheck::and_safety_states (::Behavior::type current,::Behavior::type next) 
+::Behavior::type RotationalEnergyCheck::and_safety_states (::Behavior::type current,::Behavior::type next) 
 {
   {
     if ((current == ::Behavior::Unsafe || next == ::Behavior::Unsafe)) 
@@ -67,11 +67,11 @@ AccelerationCheck::AccelerationCheck(const dzn::locator& dzn_locator)
   return ::Behavior::Safe;
 }
 
-void AccelerationCheck::check_bindings() const
+void RotationalEnergyCheck::check_bindings() const
 {
   dzn::check_bindings(&dzn_meta);
 }
-void AccelerationCheck::dump_tree(std::ostream& os) const
+void RotationalEnergyCheck::dump_tree(std::ostream& os) const
 {
   dzn::dump_tree(os, &dzn_meta);
 }

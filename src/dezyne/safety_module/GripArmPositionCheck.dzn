@@ -1,14 +1,7 @@
 import DataTypes.dzn;
 import ISafetyCheck.dzn;
 import Resolver.dzn;
-
-interface IGripArmPositionSensor {
-	in void retrieve_arm_pos();
-	
-	behaviour {
-		on retrieve_arm_pos: {}
-	}
-}
+import Sensors.dzn;
 
 component GripArmPositionCheck {
 	requires IGripArmPositionSensor iGripArmPositionSensor;

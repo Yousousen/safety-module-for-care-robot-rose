@@ -3,7 +3,7 @@ SKIN=posix
 CXX = g++
 CXXFLAGS = -g -std=c++11 -Wall -I$(RUNTIME) -I$(SRC) -lrt
 CPPFLAGS = -I$(SRC) -I$(RUNTIME) $(shell xeno-config --skin=$(SKIN) --cflags)
-LDFLAGS = -g -lpthread -lm $(shell xeno-config --skin=$(SKIN) --ldflags)
+LDFLAGS = -g -lpthread -lm -lRTIMULib $(shell xeno-config --skin=$(SKIN) --ldflags)
 RM = rm -rf
 TARGET = sm
 # Dezyne version

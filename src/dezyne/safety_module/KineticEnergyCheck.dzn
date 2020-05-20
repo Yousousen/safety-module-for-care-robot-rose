@@ -1,18 +1,11 @@
 import DataTypes.dzn;
 import ISafetyCheck.dzn;
 import Resolver.dzn;
+import Sensors.dzn;
 
-interface IAccelerationSensor {
-	in void retrieve_ke_from_acc();
-	
-	behaviour {
-		on retrieve_ke_from_acc: {}
-	}
-}
-
-component AccelerationCheck {
+component KineticEnergyCheck {
 	requires IAccelerationSensor iAccelerationSensor;
-	provides ISafetyCheck iAccelerationCheck;
+	provides ISafetyCheck iKineticEnergyCheck;
 	requires ISafetyCheck iNext;
 	requires injected IResolver iResolver;
 
@@ -26,7 +19,7 @@ component AccelerationCheck {
 			return Behavior.Safe;
 		}
 		
-		on iAccelerationCheck.do_check(): {
+		on iKineticEnergyCheck.do_check(): {
 			Behavior currSafetyState = Behavior.Safe;
 			// TODO: Let the data go through the retriever here.
 			iAccelerationSensor.retrieve_ke_from_acc();
@@ -40,9 +33,9 @@ component AccelerationCheck {
 }
 
 //requirement AnyUnsafe {
-//	provides IRequirement iAccelerationCheck;
+//	provides IRequirement iKineticEnergyCheck;
 //	// component
-//	on AccelerationCheck;
+//	on KineticEnergyCheck;
 //
 //	behaviour {
 //		Behavior b1;

@@ -51,102 +51,11 @@ struct UnsafeTriggered
 
 #endif // ENUM_UnsafeTriggered
 
-/********************************** INTERFACE *********************************/
-#ifndef IGRIPARMPOSITIONSENSOR_HH
-#define IGRIPARMPOSITIONSENSOR_HH
-
-
-
-struct IGripArmPositionSensor
-{
-
-  struct
-  {
-    std::function< void()> retrieve_arm_pos;
-  } in;
-
-  struct
-  {
-  } out;
-
-  dzn::port::meta meta;
-  inline IGripArmPositionSensor(const dzn::port::meta& m) : meta(m) {}
-
-  void check_bindings() const
-  {
-    if (! in.retrieve_arm_pos) throw dzn::binding_error(meta, "in.retrieve_arm_pos");
-
-
-  }
-};
-
-inline void connect (IGripArmPositionSensor& provided, IGripArmPositionSensor& required)
-{
-  provided.out = required.out;
-  required.in = provided.in;
-  provided.meta.requires = required.meta.requires;
-  required.meta.provides = provided.meta.provides;
-}
-
-
-#ifndef ENUM_TO_STRING_Behavior
-#define ENUM_TO_STRING_Behavior 1
-inline std::string to_string(::Behavior::type v)
-{
-  switch(v)
-  {
-    case ::Behavior::Unsafe: return "Behavior_Unsafe";
-    case ::Behavior::Safe: return "Behavior_Safe";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_Behavior
-#ifndef ENUM_TO_STRING_UnsafeTriggered
-#define ENUM_TO_STRING_UnsafeTriggered 1
-inline std::string to_string(::UnsafeTriggered::type v)
-{
-  switch(v)
-  {
-    case ::UnsafeTriggered::No: return "UnsafeTriggered_No";
-    case ::UnsafeTriggered::Yes: return "UnsafeTriggered_Yes";
-
-  }
-  return "";
-}
-#endif // ENUM_TO_STRING_UnsafeTriggered
-
-#ifndef STRING_TO_ENUM_Behavior
-#define STRING_TO_ENUM_Behavior 1
-inline ::Behavior::type to_Behavior(std::string s)
-{
-  static std::map<std::string, ::Behavior::type> m = {
-    {"Behavior_Unsafe", ::Behavior::Unsafe},
-    {"Behavior_Safe", ::Behavior::Safe},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_Behavior
-#ifndef STRING_TO_ENUM_UnsafeTriggered
-#define STRING_TO_ENUM_UnsafeTriggered 1
-inline ::UnsafeTriggered::type to_UnsafeTriggered(std::string s)
-{
-  static std::map<std::string, ::UnsafeTriggered::type> m = {
-    {"UnsafeTriggered_No", ::UnsafeTriggered::No},
-    {"UnsafeTriggered_Yes", ::UnsafeTriggered::Yes},
-  };
-  return m.at(s);
-}
-#endif // STRING_TO_ENUM_UnsafeTriggered
-
-
-#endif // IGRIPARMPOSITIONSENSOR_HH
-
-/********************************** INTERFACE *********************************/
 /********************************** COMPONENT *********************************/
 #ifndef GRIPARMPOSITIONCHECK_HH
 #define GRIPARMPOSITIONCHECK_HH
 
+#include "Sensors.hh"
 #include "ISafetyCheck.hh"
 #include "ISafetyCheck.hh"
 #include "Resolver.hh"
