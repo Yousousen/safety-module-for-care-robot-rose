@@ -65,18 +65,16 @@ void light_led(unsigned color);
 // Reset the led matrix to low.
 void reset_led();
 
-// TODO: old
-/*** data retrieval functions ***/
-void retrieve_position();
-void retrieve_velocity();
 double retrieve_acceleration();
-void retrieve_angular_displacement();
-void retrieve_angular_acceleration();
-void retrieve_all();
+double retrieve_angular_displacement();
+double retrieve_strength();
+double retrieve_position();
 
 /*** data set functions ***/
 void set_acceleration(double acceleration);
 void set_angular_displacement(double angular_displacement);
+void set_arm_strength(double arm_strength, bool has_payload);
+void set_arm_position(double arm_strength, bool is_moving);
 
 bool robot_is_moving();
 bool arm_is_folded();
@@ -107,13 +105,21 @@ void destruct();
 // Sends colors to nrt_light_led.
 static void* rt_light_led(void* arg);
 
-// sets the acceleration, retrieves acceleration from
+// Sets the acceleration, retrieves acceleration from
 // nrt_retrieve_acceleration.
 static void* rt_retrieve_acceleration(void* arg);
 
-// sets the angular velocity, retrieves angular velocity from
-// nrt_retreve_angular_velocity.
+// Sets the angular displacement, retrieves angular displacement from
+// nrt_retrieve_angular_displacement.
 static void* rt_retrieve_angular_displacement(void* arg);
+
+// Sets the arm strength, retrieves arm strength from
+// nrt_retrieve_arm_strength.
+static void* rt_retrieve_arm_strength(void* arg);
+
+// Sets the arm position, retrieves arm position from
+// nrt_retrieve_arm_position.
+static void* rt_retrieve_arm_position(void* arg);
 
 /* Thread to sample acceleration continuously.
  * Currently does the following (TODO: probably split):
@@ -150,6 +156,16 @@ static void* nrt_light_led(void *arg);
  * rt_retrieve_angular_displacement.
  */
 static void* nrt_retrieve_imu(void *arg);
+
+/* The arm strength driver. Sends current strength over an XDDP socket to
+ * rt_retrieve_arm_strength
+ */
+static void* nrt_retrieve_arm_strength(void *arg);
+
+/* The arm position driver. Sends current position over an XDDP socket to
+ * rt_retrieve_arm_position
+ */
+static void* nrt_retrieve_arm_position(void *arg);
 
 // Starts a periodic non-real-time thread.
 static void *nrt_periodic_thread_body(void *arg);
@@ -214,7 +230,6 @@ void write_to_fd(int fd, double what) {
     int ret;
     char buf[BUFSIZE];
     snprintf(buf, BUFSIZE, "%f", what);
-    // Write retrieved acceleration to rt_retrieve_acceleration.
     ret = write(fd, buf, BUFSIZE);
     if (ret <= 0)
         fail("write");
@@ -263,8 +278,8 @@ static int initialise_semaphores(std::map<std::string, sem_t>& s) {
     s["led"];
     s["retrieve_acc"];
     s["retrieve_ang_disp"];
-    s["retrieve_str"];
-    s["retrieve_pos"];
+    s["retrieve_arm_str"];
+    s["retrieve_arm_pos"];
     s["sample_acc"];
     s["sample_ang_vel"];
 
@@ -294,12 +309,10 @@ static int initialise_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     m["fb"];
     m["acc"];
     m["ang_disp"];
-    m["str"];
-    m["pos"];
+    m["arm_str"];
+    m["arm_pos"];
     m["ke"];
     m["re"];
-    m["str"];
-    m["pos"];
 
     // Initialise mutexes.
     for (auto it = m.begin(); it != m.end(); ++it) {
@@ -320,7 +333,6 @@ static int destruct_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     }
     return OK;
 }
-
 ErrorCode_t roll() {
     // Initialise dezyne locator and runtime.
     IResolver iResolver({});
@@ -357,37 +369,48 @@ ErrorCode_t roll() {
     };
 
     iResolver.in.resolve_arm_str = []() -> Behavior::type {
-        int r;
-        Behavior::type type;
-        double str;
-
-        r = safe_call([&str]() { str = arm_strength; }, &mutex["str"]);
-        if (r != OK) exit(EXIT_FAILURE);
-
-        if (arm_has_payload() && str > MAX_STR_PAYLOAD)
-            type = Behavior::type::Unsafe;
-        else if (str > MAX_STR)
-            type = Behavior::type::Unsafe;
-        else
-            type = Behavior::type::Safe;
-        return type;
+        return Behavior::type::Safe;
     };
 
     iResolver.in.resolve_arm_pos = []() -> Behavior::type {
-        int r;
-        Behavior::type type;
-        bool folded;
-
-        r = safe_call([&folded]() { folded = arm_is_folded(); },
-                &mutex["pos"]);
-        if (r != OK) exit(EXIT_FAILURE);
-
-        if (robot_is_moving() && !folded)
-            type = Behavior::type::Unsafe;
-        else
-            type = Behavior::type::Safe;
-        return type;
+        return Behavior::type::Safe;
     };
+
+    /* iResolver.in.resolve_arm_str = []() -> Behavior::type { */
+    /*     int r; */
+    /*     Behavior::type type; */
+    /*     double str; */
+    /*     bool has_payload; */
+
+    /*     r = safe_call([&]() { str = arm_strength; has_payload = */
+    /*             arm_has_payload(); }, &mutex["arm_str"]); */
+    /*     if (r != OK) exit(EXIT_FAILURE); */
+
+    /*     if ( has_payload && str > MAX_STR_PAYLOAD) */
+    /*         type = Behavior::type::Unsafe; */
+    /*     else if (str > MAX_STR) */
+    /*         type = Behavior::type::Unsafe; */
+    /*     else */
+    /*         type = Behavior::type::Safe; */
+    /*     return type; */
+    /* }; */
+
+    /* iResolver.in.resolve_arm_pos = []() -> Behavior::type { */
+    /*     int r; */
+    /*     Behavior::type type; */
+    /*     bool folded; */
+    /*     bool is_moving; */
+
+    /*     r = safe_call([&]() { folded = arm_is_folded(); is_moving = */
+    /*             robot_is_moving(); }, &mutex["arm_pos"]); */
+    /*     if (r != OK) exit(EXIT_FAILURE); */
+
+    /*     if (is_moving && !folded) */
+    /*         type = Behavior::type::Unsafe; */
+    /*     else */
+    /*         type = Behavior::type::Safe; */
+    /*     return type; */
+    /* }; */
 
     dzn::locator locator;
     dzn::runtime runtime;
@@ -412,8 +435,8 @@ ErrorCode_t roll() {
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
     s.iAngularVelocitySensor.in.retrieve_re_from_ang_vel =
         retrieve_re_from_ang_vel;
-    /* s.iGripArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos; */
-    /* s.iGripArmStrengthSensor.in.retrieve_arm_str = retrieve_arm_str; */
+    s.iArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos;
+    s.iArmStrengthSensor.in.retrieve_arm_str = retrieve_arm_str;
 
     // Check bindings
     s.check_bindings();
@@ -458,13 +481,14 @@ ErrorCode_t roll() {
     static pthread_t th_rt_light_led;
     // real-time threads for retrieving data.
     static pthread_t th_rt_ret_acc, th_rt_ret_ang_disp;
+    static pthread_t th_rt_ret_arm_str, th_rt_ret_arm_pos;
     // real-time threads for sampling sensor data.
     static pthread_t th_rt_sample_acc, th_rt_sample_ang_disp;
 
     // non-real-time thread for lighting the LED matrix.
     static pthread_t th_nrt_light_led;
-    // non-real-time thread for retrieving sensor data from the IMU.
-    static pthread_t th_nrt_ret_imu;
+    // non-real-time thread for retrieving sensor data from the IMU and ROS.
+    static pthread_t th_nrt_ret_imu, th_nrt_ret_arm_str, th_nrt_ret_arm_pos;
 
     // Information about periodic  threads.
     static struct th_info th_info;
@@ -511,6 +535,18 @@ ErrorCode_t roll() {
     if (errno)
         fail("pthread_create");
 
+    // Start thread rt_retrieve_arm_strength
+    errno = pthread_create(&th_rt_ret_arm_str, &rtattr,
+            &rt_retrieve_arm_strength, &threadargs);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread rt_retrieve_arm_position
+    errno = pthread_create(&th_rt_ret_arm_pos, &rtattr,
+            &rt_retrieve_arm_position, &threadargs);
+    if (errno)
+        fail("pthread_create");
+
     // Start thread rt_sample_acceleration
     errno = pthread_create(&th_rt_sample_acc, &rtattr, &rt_sample_acceleration,
             &threadargs);
@@ -535,6 +571,18 @@ ErrorCode_t roll() {
     if (errno)
         fail("pthread_create");
 
+    // Start thread nrt_retrieve_arm_strength
+    errno = pthread_create(&th_nrt_ret_arm_str, &nrtattr,
+            &nrt_retrieve_arm_strength, NULL);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread nrt_retrieve_arm_position
+    errno = pthread_create(&th_nrt_ret_arm_pos, &nrtattr,
+            &nrt_retrieve_arm_position, NULL);
+    if (errno)
+        fail("pthread_create");
+
 
 
     printf("Started running indefinitely.\n");
@@ -545,7 +593,7 @@ ErrorCode_t roll() {
     th_info.body = rt_checks;
     /* th_info.period = 1E6*4;   // 4s */
     /* th_info.period = 1E6/4;      // 250ms */
-    th_info.period = imu_poll_interval;      // poll interval based time.
+    th_info.period = imu_poll_interval;      // poll interval based period.
     th_info.s = &s;
     // Start periodic real-time threads.
     errno = pthread_create(&th_rt_checks, &rtattr, &rt_periodic_thread_body,
@@ -602,10 +650,15 @@ ErrorCode_t roll() {
 
     // Kill threads
     pthread_cancel(th_nrt_light_led);
+    pthread_cancel(th_nrt_ret_arm_str);
+    pthread_cancel(th_nrt_ret_arm_pos);
     pthread_cancel(th_nrt_ret_imu);
     pthread_cancel(th_rt_light_led);
     pthread_cancel(th_rt_ret_acc);
     pthread_cancel(th_rt_ret_ang_disp);
+    pthread_cancel(th_rt_ret_arm_str);
+    pthread_cancel(th_rt_ret_arm_pos);
+    pthread_cancel(th_rt_sample_acc);
     pthread_cancel(th_rt_sample_ang_disp);
 
 #if PERIODIC_CHECKS
@@ -613,10 +666,15 @@ ErrorCode_t roll() {
 #endif
 
     pthread_join(th_nrt_light_led, NULL);
+    pthread_join(th_nrt_ret_arm_pos, NULL);
+    pthread_join(th_nrt_ret_arm_str, NULL);
     pthread_join(th_nrt_ret_imu, NULL);
     pthread_join(th_rt_light_led, NULL);
     pthread_join(th_rt_ret_acc, NULL);
     pthread_join(th_rt_ret_ang_disp, NULL);
+    pthread_join(th_rt_ret_arm_str, NULL);
+    pthread_join(th_rt_ret_arm_pos, NULL);
+    pthread_join(th_rt_sample_acc, NULL);
     pthread_join(th_rt_sample_ang_disp, NULL);
 
 #if PERIODIC_CHECKS
@@ -765,23 +823,24 @@ int open_fbdev(const char *dev_name) {
 }
 
 
-void retrieve_position() {
-    auto previous = position->current;
-    srand((unsigned)time(NULL));
-    position->current = rand() % 5 + 1;
-    position->change = position->current - previous;
-}
-
-void retrieve_velocity() {
-    auto previous = velocity->current;
-    srand((unsigned)time(NULL));
-    velocity->current = rand() % 5 + 1;
-    velocity->change = velocity->current - previous;
-}
-
 double retrieve_acceleration() {
     srand((unsigned)time(NULL));
     return rand() % 5 + 1;
+}
+
+double retrieve_angular_displacement() {
+    srand((unsigned)time(NULL));
+    return rand() % 5 + 1;
+}
+
+double retrieve_strength() {
+    srand((unsigned)time(NULL));
+    return rand() % MAX_STR_PAYLOAD;
+}
+
+double retrieve_position() {
+    srand((unsigned)time(NULL));
+    return rand() % 10;
 }
 
 void set_acceleration(double acceleration) {
@@ -796,29 +855,20 @@ void set_angular_displacement(double angular_displacement) {
     ::angular_displacement->change = ::angular_displacement->current - previous;
 }
 
-void retrieve_angular_displacement() {
-    auto previous = angular_displacement->current;
-    srand((unsigned)time(NULL));
-    angular_displacement->current = rand() % 5 + 1;
-    angular_displacement->change = angular_displacement->current - previous;
+void set_arm_strength(double arm_strength, bool has_payload) {
+    auto previous = rose->arm->current_strength;
+    rose->arm->current_strength = arm_strength;
+    rose->arm->change_strength = arm_strength - previous;
+    rose->arm->has_payload = has_payload;
 }
 
-
-void retrieve_angular_acceleration() {
-    auto previous = angular_acceleration->current;
-    srand((unsigned)time(NULL));
-    angular_acceleration->current = rand() % 5 + 1;
-    angular_acceleration->change = angular_acceleration->current -
-        previous;
+void set_arm_position(double arm_position, bool is_moving) {
+    auto previous = rose->arm->current_position;
+    rose->arm->current_position = arm_position;
+    rose->arm->change_position = arm_position - previous;
+    rose->is_moving = is_moving;
 }
 
-void retrieve_all() {
-    retrieve_position();
-    retrieve_velocity();
-    retrieve_acceleration();
-    retrieve_angular_displacement();
-    retrieve_angular_acceleration();
-}
 
 void sample_acceleration(double* f, const int nsamples) {
     printf("# rectangles: ");
@@ -861,23 +911,21 @@ void retrieve_re_from_ang_vel() {
 }
 
 void retrieve_arm_str() {
-    printf(">>> retrieving grip arm strength\n\n");
-    rose->arm->retrieve_strength();
-    arm_strength = rose->arm->current_strength;
-    // Unneeded, just for slow output.
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
-    printf("Grip arm strength: %f\n", arm_strength);
-    printf("<<< done\n\n");
+    int r = safe_call( []() {
+            arm_strength = rose->arm->current_strength;
+            /* printf("arm strength = %g\n", arm_strength); */
+            },
+            &mutex["arm_str"]);
+    if (r != OK) exit(EXIT_FAILURE);
 }
 
 void retrieve_arm_pos() {
-    printf(">>> retrieving grip arm position\n\n");
-    rose->arm->retrieve_position();
-    arm_position = rose->arm->current_position;
-    // Unneeded, just for slow output.
-    std::this_thread::sleep_for(std::chrono::microseconds(500));
-    printf("Grip arm position: %d\n", arm_position);
-    printf("<<< done\n\n");
+    int r = safe_call( []() {
+            arm_position = rose->arm->current_position;
+            /* printf("arm position = %d\n", arm_position); */
+            },
+            &mutex["arm_pos"]);
+    if (r != OK) exit(EXIT_FAILURE);
 }
 
 bool robot_is_moving() {
@@ -1145,6 +1193,159 @@ static void* rt_retrieve_angular_displacement(void* arg) {
     return NULL;
 }
 
+static void* rt_retrieve_arm_strength(void* arg) {
+    int n = 0;
+    int len;
+    int ret;
+    int r;
+    int s;
+    char buf[BUFSIZE];
+    struct sockaddr_ipc saddr;
+    size_t poolsz;
+
+    struct threadargs *args = (struct threadargs *)arg;
+
+    // Initialise XDDP
+    /*
+     * Get a datagram socket to bind to the RT endpoint. Each
+     * endpoint is represented by a port number within the XDDP
+     * protocol namespace.
+     */
+    s = socket(AF_RTIPC, SOCK_DGRAM, IPCPROTO_XDDP);
+    if (s < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * Set a local 16k pool for the RT endpoint. Memory needed to
+     * convey datagrams will be pulled from this pool, instead of
+     * Xenomai's system pool.
+     */
+    poolsz = 16384; /* bytes */
+    ret = setsockopt(s, SOL_XDDP, XDDP_POOLSZ, &poolsz, sizeof(poolsz));
+    if (ret)
+        fail("setsockopt");
+    /*
+     * Bind the socket to the port, to setup a proxy to channel
+     * traffic to/from the Linux domain.
+     *
+     * saddr.sipc_port specifies the port number to use.
+     */
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sipc_family = AF_RTIPC;
+    saddr.sipc_port = XDDP_PORT_RET_STR;
+    ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
+    if (ret)
+        fail("bind");
+
+    /*
+     * Retrieve a datagrams from the NRT endpoint via the proxy.
+     */
+    while (1) {
+        /* Read packets echoed by the non-real-time thread */
+        /*
+         * This call blocks if there is no data to receive. This however is not
+         * a problem as sample acceleration is not depended on this thread
+         * blocking or not. That is, sample acceleration can do its work
+         * independent of this thread.
+         */
+        ret = recvfrom(s, buf, sizeof(buf), 0, NULL, 0);
+        if (ret <= 0)
+            fail("recvfrom");
+        /* printf("   => \"%.*s\" received by peer\n", ret, buf); */
+        n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
+
+        // buf contains both the strength and if we have a payload or not.
+        double strength = atof(buf);
+        // has_payload is sent as an integer after the ':' sign.
+        bool has_payload = static_cast<bool>((atoi((strchr(buf, ':')+1))));
+
+        // Set arm strength
+        r = safe_call([=]() { set_arm_strength(strength, has_payload); },
+                &mutex["arm_str"]);
+        if (r != OK) exit(EXIT_FAILURE);
+    }
+    return NULL;
+}
+
+static void* rt_retrieve_arm_position(void* arg) {
+    int n = 0;
+    int len;
+    int ret;
+    int r;
+    int s;
+    char buf[BUFSIZE];
+    struct sockaddr_ipc saddr;
+    size_t poolsz;
+
+    struct threadargs *args = (struct threadargs *)arg;
+
+    // Initialise XDDP
+    /*
+     * Get a datagram socket to bind to the RT endpoint. Each
+     * endpoint is represented by a port number within the XDDP
+     * protocol namespace.
+     */
+    s = socket(AF_RTIPC, SOCK_DGRAM, IPCPROTO_XDDP);
+    if (s < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * Set a local 16k pool for the RT endpoint. Memory needed to
+     * convey datagrams will be pulled from this pool, instead of
+     * Xenomai's system pool.
+     */
+    poolsz = 16384; /* bytes */
+    ret = setsockopt(s, SOL_XDDP, XDDP_POOLSZ, &poolsz, sizeof(poolsz));
+    if (ret)
+        fail("setsockopt");
+    /*
+     * Bind the socket to the port, to setup a proxy to channel
+     * traffic to/from the Linux domain.
+     *
+     * saddr.sipc_port specifies the port number to use.
+     */
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sipc_family = AF_RTIPC;
+    saddr.sipc_port = XDDP_PORT_RET_POS;
+    ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
+    if (ret)
+        fail("bind");
+
+    /*
+     * Retrieve a datagrams from the NRT endpoint via the proxy.
+     */
+    while (1) {
+        /* Read packets echoed by the non-real-time thread */
+        /*
+         * This call blocks if there is no data to receive. This however is not
+         * a problem as sample acceleration is not depended on this thread
+         * blocking or not. That is, sample acceleration can do its work
+         * independent of this thread.
+         */
+        ret = recvfrom(s, buf, sizeof(buf), 0, NULL, 0);
+        if (ret <= 0)
+            fail("recvfrom");
+        /* printf("   => \"%.*s\" received by peer\n", ret, buf); */
+        n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
+
+        // buf contains both the position and if we are moving or not.
+        double position = atof(buf);
+        // is_moving is sent as an integer after the ':' sign.
+        bool is_moving = static_cast<bool>((atoi((strchr(buf, ':')+1))));
+
+        // Set arm position
+        r = safe_call([=]() { set_arm_position(position, is_moving); },
+                &mutex["arm_pos"]);
+        if (r != OK) exit(EXIT_FAILURE);
+    }
+    return NULL;
+}
+
+
 static void* rt_sample_acceleration(void* arg) {
     int r;
     // numbers of seconds to sample.
@@ -1300,6 +1501,88 @@ static void* nrt_retrieve_imu(void *arg) {
 
     return NULL;
 }
+
+static void* nrt_retrieve_arm_strength(void *arg) {
+    struct threadargs *args = (struct threadargs *)arg;
+    double strength;
+    static int has_payload = 0;
+    char *devname;
+    int fd, ret;
+    char buf[BUFSIZE];
+
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_STR) < 0)
+        fail("asprintf");
+    fd = open(devname, O_RDWR);
+    free(devname);
+    if (fd < 0)
+        fail("open");
+
+    while (1) {
+        // Wait for an up before retrieving arm strength.
+        // driver.
+        /* sem_wait(&semaphore["retrieve_arm_str"]); */
+
+        // Poll at the same rate as the imu.
+        usleep(imu_poll_interval);
+
+        /*
+         * Here we should retrieve from ROS.
+         * But for now, retrieve a random value.
+         */
+        strength = retrieve_strength();
+        has_payload ^= 1;
+
+        // Write retrieved strength to rt_retrieve_strength.
+        snprintf(buf, BUFSIZE, "%f:%d", strength, has_payload);
+        ret = write(fd, buf, BUFSIZE);
+        if (ret <= 0)
+            fail("write");
+    }
+
+    return NULL;
+}
+
+static void* nrt_retrieve_arm_position(void *arg) {
+    struct threadargs *args = (struct threadargs *)arg;
+    int position;
+    static int has_payload = 0, is_moving = 0;
+    char *devname;
+    int fd, ret;
+    char buf[BUFSIZE];
+
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_POS) < 0)
+        fail("asprintf");
+    fd = open(devname, O_RDWR);
+    free(devname);
+    if (fd < 0)
+        fail("open");
+
+    while (1) {
+        // Wait for an up before retrieving arm position.
+        // driver.
+        /* sem_wait(&semaphore["retrieve_arm_str"]); */
+
+        // Poll at the same rate as the imu.
+        usleep(imu_poll_interval);
+
+        /*
+         * Here we should retrieve from ROS.
+         * But for now, retrieve a random value.
+         */
+        position = retrieve_position();
+        if (position < 8) position = 0; else position = 1;
+        is_moving ^= 1;
+
+        // Write retrieved position to rt_retrieve_position.
+        snprintf(buf, BUFSIZE, "%d:%d", position, is_moving);
+        ret = write(fd, buf, BUFSIZE);
+        if (ret <= 0)
+            fail("write");
+    }
+
+    return NULL;
+}
+
 
 static void rt_checks(void* arg) {
     struct threadargs *args = (struct threadargs *)arg;

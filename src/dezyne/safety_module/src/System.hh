@@ -61,6 +61,8 @@ struct UnsafeTriggered
 #include "Controller.hh"
 #include "KineticEnergyCheck.hh"
 #include "RotationalEnergyCheck.hh"
+#include "ArmPositionCheck.hh"
+#include "ArmStrengthCheck.hh"
 #include "BaseCaseCheck.hh"
 
 
@@ -75,6 +77,8 @@ struct System
   ::Controller controller;
   ::KineticEnergyCheck kineticEnergyCheck;
   ::RotationalEnergyCheck rotationalEnergyCheck;
+  ::ArmPositionCheck armPositionCheck;
+  ::ArmStrengthCheck armStrengthCheck;
   ::BaseCaseCheck baseCaseCheck;
 
   ::IController& iController;
@@ -82,6 +86,8 @@ struct System
   ::ILEDControl& iLEDControl;
   ::IAccelerationSensor& iAccelerationSensor;
   ::IAngularVelocitySensor& iAngularVelocitySensor;
+  ::IArmPositionSensor& iArmPositionSensor;
+  ::IArmStrengthSensor& iArmStrengthSensor;
 
   System(const dzn::locator&);
   void check_bindings() const;

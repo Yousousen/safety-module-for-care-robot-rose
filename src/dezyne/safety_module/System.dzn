@@ -2,8 +2,8 @@ import Controller.dzn;
 import LEDControl.dzn;
 import KineticEnergyCheck.dzn;
 import RotationalEnergyCheck.dzn;
-import GripArmPositionCheck.dzn;
-import GripArmStrengthCheck.dzn;
+import ArmPositionCheck.dzn;
+import ArmStrengthCheck.dzn;
 import BaseCaseCheck.dzn;
 import Sensors.dzn;
 
@@ -12,46 +12,51 @@ component System {
 	requires ILEDControl iLEDControl;
 	requires IAccelerationSensor iAccelerationSensor;
 	requires IAngularVelocitySensor iAngularVelocitySensor;
-//	requires IGripArmPositionSensor iGripArmPositionSensor;
-//	requires IGripArmStrengthSensor iGripArmStrengthSensor;
+	requires IArmPositionSensor iArmPositionSensor;
+	requires IArmStrengthSensor iArmStrengthSensor;
 	
 	system {
+		/*** Components ***/
 		Controller controller;
 		KineticEnergyCheck kineticEnergyCheck;
 		RotationalEnergyCheck rotationalEnergyCheck;
-		//GripArmPositionCheck gripArmPositionCheck;
-		//GripArmStrengthCheck gripArmStrengthCheck;
+		ArmPositionCheck armPositionCheck;
+		ArmStrengthCheck armStrengthCheck;
 		BaseCaseCheck baseCaseCheck;
 
 		iController <=> controller.iController;
 		iLEDControl <=> controller.iLEDControl;
-		//iGripArmPositionSensor <=> gripArmPositionCheck.iGripArmPositionSensor;
-		//iGripArmStrengthSensor <=> gripArmStrengthCheck.iGripArmStrengthSensor;
- 
-//		controller.iNext <=> kineticEnergyCheck.iKineticEnergyCheck;
-//        kineticEnergyCheck.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
-//		rotationalEnergyCheck.iNext <=> gripArmPositionCheck.iGripArmPositionCheck;
-//		gripArmPositionCheck.iNext <=> gripArmStrengthCheck.iGripArmStrengthCheck;
-//		gripArmStrengthCheck.iNext <=> baseCaseCheck.iRoot;
+
+		/*** Bind sensors ***/
+		iAccelerationSensor <=> kineticEnergyCheck.iAccelerationSensor;
+		iAngularVelocitySensor <=> rotationalEnergyCheck.iAngularVelocitySensor;
+		iArmStrengthSensor <=> armStrengthCheck.iArmStrengthSensor;
+		iArmPositionSensor <=> armPositionCheck.iArmPositionSensor;
+
+ 		/*** Check all four ***/
+		controller.iNext <=> kineticEnergyCheck.iKineticEnergyCheck;
+        kineticEnergyCheck.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
+		rotationalEnergyCheck.iNext <=> armPositionCheck.iArmPositionCheck;
+		armPositionCheck.iNext <=> armStrengthCheck.iArmStrengthCheck;
+		armStrengthCheck.iNext <=> baseCaseCheck.iRoot;
 
 
 		/*** Acceleration check only ***/
-//		iAccelerationSensor <=> kineticEnergyCheck.iAccelerationSensor;
 //		controller.iNext <=> kineticEnergyCheck.iKineticEnergy;
 //		kineticEnergyCheck.iNext <=> baseCaseCheck.iRoot;
 
-
 		/*** Angular velocity check only ***/
-//		iAngularVelocitySensor <=> rotationalEnergyCheck.iAngularVelocitySensor;
 //		controller.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
 //		rotationalEnergyCheck.iNext <=> baseCaseCheck.iRoot;
 
+		/*** Acceleration and angular velocity checks only ***/
+//		controller.iNext <=> kineticEnergyCheck.iKineticEnergyCheck;
+//		kineticEnergyCheck.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
+//		rotationalEnergyCheck.iNext <=> baseCaseCheck.iRoot;
 
-		/*** Acceleration and angular velocity check only ***/
-		iAccelerationSensor <=> kineticEnergyCheck.iAccelerationSensor;
-		iAngularVelocitySensor <=> rotationalEnergyCheck.iAngularVelocitySensor;
-		controller.iNext <=> kineticEnergyCheck.iKineticEnergyCheck;
-		kineticEnergyCheck.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
-		rotationalEnergyCheck.iNext <=> baseCaseCheck.iRoot;
+		/*** arm strength and arm checks only ***/
+//		controller.iNext <=> armStrengthCheck.iArmStrengthCheck;
+//		armStrengthCheck.iNext <=> armPositionCheck.iArmPositionCheck;
+//		armPositionCheck.iNext <=> baseCaseCheck.iRoot;
 	}
 }

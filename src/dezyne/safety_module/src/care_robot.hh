@@ -67,15 +67,15 @@ class Neck {
         friend std::ostream& operator<< (std::ostream&, const Neck&);
 };
 
-class GripArm {
+class Arm {
     public:
         // Constructors
-        GripArm() : current_strength(0.0), change_strength(0.0),
+        Arm() : current_strength(0.0), change_strength(0.0),
         max_strength(0.0), min_strength(0.0), current_position(0),
         change_position(0.0), max_position(0.0), min_position(0.0),
         has_payload(false) {};
 
-        GripArm(double curs, double chgs, double maxs, double mins, double
+        Arm(double curs, double chgs, double maxs, double mins, double
                 curp, double chgp, double maxp, double minp, double pay) :
             current_strength(curs), change_strength(chgs), max_strength(maxs),
             min_strength(mins), current_position(curp), change_position(chgp),
@@ -99,7 +99,7 @@ class GripArm {
         void retrieve_strength();
         void retrieve_position();
 
-        friend std::ostream& operator<< (std::ostream&, const GripArm&);
+        friend std::ostream& operator<< (std::ostream&, const Arm&);
 };
 
 class Camera {
@@ -145,7 +145,7 @@ class CareRobotRose : public GenericCareRobot {
         // Components and properties of care robot rose.
         Body* body = nullptr;
         Neck* neck = nullptr;
-        GripArm* arm = nullptr;
+        Arm* arm = nullptr;
         Camera* camera = nullptr;
 
         struct Position* position = nullptr;
@@ -153,6 +153,7 @@ class CareRobotRose : public GenericCareRobot {
         struct Acceleration* acceleration = nullptr;
         struct AngularVelocity* angular_velocity = nullptr;
         struct AngularAcceleration* angular_acceleration = nullptr;
+        bool is_moving;
 
 
     private:

@@ -19,7 +19,7 @@
 //SYSTEM
 
 System::System(const dzn::locator& dzn_locator)
-: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularVelocitySensor.meta},{& controller.dzn_meta,& kineticEnergyCheck.dzn_meta,& rotationalEnergyCheck.dzn_meta,& baseCaseCheck.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularVelocitySensor.check_bindings();}}}
+: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularVelocitySensor.meta,& iArmPositionSensor.meta,& iArmStrengthSensor.meta},{& controller.dzn_meta,& kineticEnergyCheck.dzn_meta,& rotationalEnergyCheck.dzn_meta,& armPositionCheck.dzn_meta,& armStrengthCheck.dzn_meta,& baseCaseCheck.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularVelocitySensor.check_bindings();},[this]{iArmPositionSensor.check_bindings();},[this]{iArmStrengthSensor.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
@@ -27,10 +27,12 @@ System::System(const dzn::locator& dzn_locator)
 , controller(dzn_locator)
 , kineticEnergyCheck(dzn_locator)
 , rotationalEnergyCheck(dzn_locator)
+, armPositionCheck(dzn_locator)
+, armStrengthCheck(dzn_locator)
 , baseCaseCheck(dzn_locator)
 
 , iController(controller.iController)
-, iLEDControl(controller.iLEDControl), iAccelerationSensor(kineticEnergyCheck.iAccelerationSensor), iAngularVelocitySensor(rotationalEnergyCheck.iAngularVelocitySensor)
+, iLEDControl(controller.iLEDControl), iAccelerationSensor(kineticEnergyCheck.iAccelerationSensor), iAngularVelocitySensor(rotationalEnergyCheck.iAngularVelocitySensor), iArmPositionSensor(armPositionCheck.iArmPositionSensor), iArmStrengthSensor(armStrengthCheck.iArmStrengthSensor)
 {
 
 
@@ -40,13 +42,19 @@ System::System(const dzn::locator& dzn_locator)
   kineticEnergyCheck.dzn_meta.name = "kineticEnergyCheck";
   rotationalEnergyCheck.dzn_meta.parent = &dzn_meta;
   rotationalEnergyCheck.dzn_meta.name = "rotationalEnergyCheck";
+  armPositionCheck.dzn_meta.parent = &dzn_meta;
+  armPositionCheck.dzn_meta.name = "armPositionCheck";
+  armStrengthCheck.dzn_meta.parent = &dzn_meta;
+  armStrengthCheck.dzn_meta.name = "armStrengthCheck";
   baseCaseCheck.dzn_meta.parent = &dzn_meta;
   baseCaseCheck.dzn_meta.name = "baseCaseCheck";
 
 
   connect(kineticEnergyCheck.iKineticEnergyCheck, controller.iNext);
   connect(rotationalEnergyCheck.iRotationalEnergyCheck, kineticEnergyCheck.iNext);
-  connect(baseCaseCheck.iRoot, rotationalEnergyCheck.iNext);
+  connect(armPositionCheck.iArmPositionCheck, rotationalEnergyCheck.iNext);
+  connect(armStrengthCheck.iArmStrengthCheck, armPositionCheck.iNext);
+  connect(baseCaseCheck.iRoot, armStrengthCheck.iNext);
 
   dzn::rank(iController.meta.provides.meta, 0);
 

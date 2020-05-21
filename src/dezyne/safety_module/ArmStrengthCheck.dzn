@@ -3,27 +3,25 @@ import ISafetyCheck.dzn;
 import Resolver.dzn;
 import Sensors.dzn;
 
-component RotationalEnergyCheck {
-	requires IAngularVelocitySensor iAngularVelocitySensor;
-	provides ISafetyCheck iRotationalEnergyCheck;
+component ArmStrengthCheck {
+	requires IArmStrengthSensor iArmStrengthSensor;
+	provides ISafetyCheck iArmStrengthCheck;
 	requires ISafetyCheck iNext;
 	requires injected IResolver iResolver;
 
 	behaviour {
-		// Function to boolean and current and next safety state.
-		// If either current or next is Unsafe we return Unsafe.
 		Behavior and_safety_states(Behavior current, Behavior next) {
 			if(current == Behavior.Unsafe || next == Behavior.Unsafe) {
 				return Behavior.Unsafe;
 			}
 			return Behavior.Safe;
 		}
-		
-		on iRotationalEnergyCheck.do_check(): {
+
+		on iArmStrengthCheck.do_check(): {
 			Behavior currSafetyState = Behavior.Safe;
 			// TODO: Let the data go through the retriever here.
-			iAngularVelocitySensor.retrieve_re_from_ang_vel();
-			currSafetyState = iResolver.resolve_re_from_ang_vel();
+			iArmStrengthSensor.retrieve_arm_str();
+			currSafetyState = iResolver.resolve_arm_str();
 			
 			Behavior nextSafetyState = iNext.do_check();
 			Behavior res = and_safety_states(currSafetyState, nextSafetyState); 

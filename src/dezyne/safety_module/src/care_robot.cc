@@ -3,7 +3,7 @@
 CareRobotRose::CareRobotRose() {
     body = new Body(11.0, 12.0, 13.0, 14.0);
     neck = new Neck(11.0, 12.0, 13.0, 14.0);
-    arm = new GripArm(11.0, 12.0, 13.0, 14.0, 11.0, 12.0, 13.0, 14.0, true);
+    arm = new Arm(11.0, 12.0, 13.0, 14.0, 11.0, 12.0, 13.0, 14.0, true);
     camera = new Camera(true);
 
     movement_mode = MovementMode::STATIONARY;
@@ -43,7 +43,8 @@ CareRobotRose::CareRobotRose() {
     } else {
         angular_acceleration = new AngularAcceleration(11.0, 12.0, 13.0, 14.0);
     }
-
+    
+    is_moving = false;
 }
 
 CareRobotRose::~CareRobotRose() {
@@ -72,7 +73,7 @@ void Neck::retrieve_turn() {
     this->change_turn = this->current_turn - previous_turn;
 }
 
-void GripArm::retrieve_strength() {
+void Arm::retrieve_strength() {
     auto previous_strength = this->current_strength;
     srand((unsigned)time(NULL));
     this->current_strength = rand() % 100 + 1;
@@ -80,7 +81,7 @@ void GripArm::retrieve_strength() {
     this->has_payload = static_cast<bool>(this->has_payload ^ 1);
 }
 
-void GripArm::retrieve_position() {
+void Arm::retrieve_position() {
     auto previous_position = this->current_position;
     srand((unsigned)time(NULL));
     /* this->current_position = rand() % 100 + 1; */
@@ -170,8 +171,8 @@ std::ostream& operator<< (std::ostream& os, const Neck& neck) {
     return os;
 }
 
-std::ostream& operator<< (std::ostream& os, const GripArm& arm) {
-    os  << "### GripArm ###:\n"
+std::ostream& operator<< (std::ostream& os, const Arm& arm) {
+    os  << "### Arm ###:\n"
         << "current strength: "  << arm.current_strength << "\n"
         << "change_strength: "   << arm.change_strength << "\n"
         << "max_strength: "      << arm.max_strength << "\n"

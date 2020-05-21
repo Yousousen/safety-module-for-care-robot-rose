@@ -52,8 +52,8 @@ struct UnsafeTriggered
 #endif // ENUM_UnsafeTriggered
 
 /********************************** COMPONENT *********************************/
-#ifndef GRIPARMPOSITIONCHECK_HH
-#define GRIPARMPOSITIONCHECK_HH
+#ifndef ARMPOSITIONCHECK_HH
+#define ARMPOSITIONCHECK_HH
 
 #include "Sensors.hh"
 #include "ISafetyCheck.hh"
@@ -62,7 +62,7 @@ struct UnsafeTriggered
 
 
 
-struct GripArmPositionCheck
+struct ArmPositionCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
@@ -71,29 +71,29 @@ struct GripArmPositionCheck
 
   ::Behavior::type reply_Behavior;
 
-  std::function<void ()> out_iGripArmPositionCheck;
+  std::function<void ()> out_iArmPositionCheck;
 
-  ::ISafetyCheck iGripArmPositionCheck;
+  ::ISafetyCheck iArmPositionCheck;
 
-  ::IGripArmPositionSensor iGripArmPositionSensor;
+  ::IArmPositionSensor iArmPositionSensor;
   ::ISafetyCheck iNext;
   ::IResolver iResolver;
 
 
-  GripArmPositionCheck(const dzn::locator&);
+  ArmPositionCheck(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const GripArmPositionCheck& m)  {
+  friend std::ostream& operator << (std::ostream& os, const ArmPositionCheck& m)  {
     (void)m;
     return os << "[" << "]" ;
   }
   private:
-  ::Behavior::type iGripArmPositionCheck_do_check();
+  ::Behavior::type iArmPositionCheck_do_check();
 
   ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // GRIPARMPOSITIONCHECK_HH
+#endif // ARMPOSITIONCHECK_HH
 
 /********************************** COMPONENT *********************************/
 

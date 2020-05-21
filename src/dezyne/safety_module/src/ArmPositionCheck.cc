@@ -10,23 +10,23 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
-#include "GripArmStrengthCheck.hh"
+#include "ArmPositionCheck.hh"
 
 #include <dzn/locator.hh>
 #include <dzn/runtime.hh>
 
 
 
-GripArmStrengthCheck::GripArmStrengthCheck(const dzn::locator& dzn_locator)
-: dzn_meta{"","GripArmStrengthCheck",0,0,{& iGripArmStrengthSensor.meta,& iNext.meta,& iResolver.meta},{},{[this]{iGripArmStrengthSensor.check_bindings();},[this]{iGripArmStrengthCheck.check_bindings();},[this]{iNext.check_bindings();},[this]{iResolver.check_bindings();}}}
+ArmPositionCheck::ArmPositionCheck(const dzn::locator& dzn_locator)
+: dzn_meta{"","ArmPositionCheck",0,0,{& iArmPositionSensor.meta,& iNext.meta,& iResolver.meta},{},{[this]{iArmPositionSensor.check_bindings();},[this]{iArmPositionCheck.check_bindings();},[this]{iNext.check_bindings();},[this]{iResolver.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
 , iResolver(dzn_locator.get< IResolver>())
 
-, iGripArmStrengthCheck({{"iGripArmStrengthCheck",this,&dzn_meta},{"",0,0}})
+, iArmPositionCheck({{"iArmPositionCheck",this,&dzn_meta},{"",0,0}})
 
-, iGripArmStrengthSensor({{"",0,0},{"iGripArmStrengthSensor",this,&dzn_meta}})
+, iArmPositionSensor({{"",0,0},{"iArmPositionSensor",this,&dzn_meta}})
 , iNext({{"",0,0},{"iNext",this,&dzn_meta}})
 
 
@@ -35,19 +35,19 @@ GripArmStrengthCheck::GripArmStrengthCheck(const dzn::locator& dzn_locator)
 
 
 
-  iGripArmStrengthCheck.in.do_check = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iGripArmStrengthCheck) = false; return iGripArmStrengthCheck_do_check();}, this->iGripArmStrengthCheck.meta, "do_check");};
+  iArmPositionCheck.in.do_check = [&](){return dzn::call_in(this,[=]{ dzn_locator.get<dzn::runtime>().skip_block(&this->iArmPositionCheck) = false; return iArmPositionCheck_do_check();}, this->iArmPositionCheck.meta, "do_check");};
 
 
 
 }
 
-::Behavior::type GripArmStrengthCheck::iGripArmStrengthCheck_do_check()
+::Behavior::type ArmPositionCheck::iArmPositionCheck_do_check()
 {
 
   {
     ::Behavior::type currSafetyState = ::Behavior::Safe;
-    this->iGripArmStrengthSensor.in.retrieve_arm_str();
-    currSafetyState = this->iResolver.in.resolve_arm_str();
+    this->iArmPositionSensor.in.retrieve_arm_pos();
+    currSafetyState = this->iResolver.in.resolve_arm_pos();
     ::Behavior::type nextSafetyState = this->iNext.in.do_check();
     ::Behavior::type res = and_safety_states(currSafetyState,nextSafetyState);
     { this->reply_Behavior = res; }
@@ -56,7 +56,7 @@ GripArmStrengthCheck::GripArmStrengthCheck(const dzn::locator& dzn_locator)
   return this->reply_Behavior;
 }
 
-::Behavior::type GripArmStrengthCheck::and_safety_states (::Behavior::type current,::Behavior::type next) 
+::Behavior::type ArmPositionCheck::and_safety_states (::Behavior::type current,::Behavior::type next) 
 {
   {
     if ((current == ::Behavior::Unsafe || next == ::Behavior::Unsafe)) 
@@ -67,11 +67,11 @@ GripArmStrengthCheck::GripArmStrengthCheck(const dzn::locator& dzn_locator)
   return ::Behavior::Safe;
 }
 
-void GripArmStrengthCheck::check_bindings() const
+void ArmPositionCheck::check_bindings() const
 {
   dzn::check_bindings(&dzn_meta);
 }
-void GripArmStrengthCheck::dump_tree(std::ostream& os) const
+void ArmPositionCheck::dump_tree(std::ostream& os) const
 {
   dzn::dump_tree(os, &dzn_meta);
 }

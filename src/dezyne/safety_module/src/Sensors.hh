@@ -112,12 +112,12 @@ inline void connect (IAngularVelocitySensor& provided, IAngularVelocitySensor& r
 
 /********************************** INTERFACE *********************************/
 /********************************** INTERFACE *********************************/
-#ifndef IGRIPARMSTRENGTHSENSOR_HH
-#define IGRIPARMSTRENGTHSENSOR_HH
+#ifndef IARMSTRENGTHSENSOR_HH
+#define IARMSTRENGTHSENSOR_HH
 
 
 
-struct IGripArmStrengthSensor
+struct IArmStrengthSensor
 {
 
   struct
@@ -130,7 +130,7 @@ struct IGripArmStrengthSensor
   } out;
 
   dzn::port::meta meta;
-  inline IGripArmStrengthSensor(const dzn::port::meta& m) : meta(m) {}
+  inline IArmStrengthSensor(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
@@ -140,7 +140,7 @@ struct IGripArmStrengthSensor
   }
 };
 
-inline void connect (IGripArmStrengthSensor& provided, IGripArmStrengthSensor& required)
+inline void connect (IArmStrengthSensor& provided, IArmStrengthSensor& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -152,16 +152,16 @@ inline void connect (IGripArmStrengthSensor& provided, IGripArmStrengthSensor& r
 
 
 
-#endif // IGRIPARMSTRENGTHSENSOR_HH
+#endif // IARMSTRENGTHSENSOR_HH
 
 /********************************** INTERFACE *********************************/
 /********************************** INTERFACE *********************************/
-#ifndef IGRIPARMPOSITIONSENSOR_HH
-#define IGRIPARMPOSITIONSENSOR_HH
+#ifndef IARMPOSITIONSENSOR_HH
+#define IARMPOSITIONSENSOR_HH
 
 
 
-struct IGripArmPositionSensor
+struct IArmPositionSensor
 {
 
   struct
@@ -174,7 +174,7 @@ struct IGripArmPositionSensor
   } out;
 
   dzn::port::meta meta;
-  inline IGripArmPositionSensor(const dzn::port::meta& m) : meta(m) {}
+  inline IArmPositionSensor(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
@@ -184,7 +184,7 @@ struct IGripArmPositionSensor
   }
 };
 
-inline void connect (IGripArmPositionSensor& provided, IGripArmPositionSensor& required)
+inline void connect (IArmPositionSensor& provided, IArmPositionSensor& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -196,7 +196,7 @@ inline void connect (IGripArmPositionSensor& provided, IGripArmPositionSensor& r
 
 
 
-#endif // IGRIPARMPOSITIONSENSOR_HH
+#endif // IARMPOSITIONSENSOR_HH
 
 /********************************** INTERFACE *********************************/
 
