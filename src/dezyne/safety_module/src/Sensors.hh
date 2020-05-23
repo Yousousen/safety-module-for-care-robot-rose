@@ -112,17 +112,17 @@ inline void connect (IAngularVelocitySensor& provided, IAngularVelocitySensor& r
 
 /********************************** INTERFACE *********************************/
 /********************************** INTERFACE *********************************/
-#ifndef IARMSTRENGTHSENSOR_HH
-#define IARMSTRENGTHSENSOR_HH
+#ifndef IARMFORCESENSOR_HH
+#define IARMFORCESENSOR_HH
 
 
 
-struct IArmStrengthSensor
+struct IArmForceSensor
 {
 
   struct
   {
-    std::function< void()> retrieve_arm_str;
+    std::function< void()> retrieve_arm_force;
   } in;
 
   struct
@@ -130,17 +130,17 @@ struct IArmStrengthSensor
   } out;
 
   dzn::port::meta meta;
-  inline IArmStrengthSensor(const dzn::port::meta& m) : meta(m) {}
+  inline IArmForceSensor(const dzn::port::meta& m) : meta(m) {}
 
   void check_bindings() const
   {
-    if (! in.retrieve_arm_str) throw dzn::binding_error(meta, "in.retrieve_arm_str");
+    if (! in.retrieve_arm_force) throw dzn::binding_error(meta, "in.retrieve_arm_force");
 
 
   }
 };
 
-inline void connect (IArmStrengthSensor& provided, IArmStrengthSensor& required)
+inline void connect (IArmForceSensor& provided, IArmForceSensor& required)
 {
   provided.out = required.out;
   required.in = provided.in;
@@ -152,7 +152,7 @@ inline void connect (IArmStrengthSensor& provided, IArmStrengthSensor& required)
 
 
 
-#endif // IARMSTRENGTHSENSOR_HH
+#endif // IARMFORCESENSOR_HH
 
 /********************************** INTERFACE *********************************/
 /********************************** INTERFACE *********************************/

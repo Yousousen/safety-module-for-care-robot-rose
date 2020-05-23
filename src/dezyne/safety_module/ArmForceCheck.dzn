@@ -3,9 +3,9 @@ import ISafetyCheck.dzn;
 import Resolver.dzn;
 import Sensors.dzn;
 
-component ArmStrengthCheck {
-	requires IArmStrengthSensor iArmStrengthSensor;
-	provides ISafetyCheck iArmStrengthCheck;
+component ArmForceCheck {
+	requires IArmForceSensor iArmForceSensor;
+	provides ISafetyCheck iArmForceCheck;
 	requires ISafetyCheck iNext;
 	requires injected IResolver iResolver;
 
@@ -17,11 +17,11 @@ component ArmStrengthCheck {
 			return Behavior.Safe;
 		}
 
-		on iArmStrengthCheck.do_check(): {
+		on iArmForceCheck.do_check(): {
 			Behavior currSafetyState = Behavior.Safe;
 			// TODO: Let the data go through the retriever here.
-			iArmStrengthSensor.retrieve_arm_str();
-			currSafetyState = iResolver.resolve_arm_str();
+			iArmForceSensor.retrieve_arm_force();
+			currSafetyState = iResolver.resolve_arm_force();
 			
 			Behavior nextSafetyState = iNext.do_check();
 			Behavior res = and_safety_states(currSafetyState, nextSafetyState); 

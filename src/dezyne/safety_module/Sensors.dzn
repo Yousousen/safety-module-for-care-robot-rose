@@ -14,11 +14,11 @@ interface IAngularVelocitySensor {
 	}
 }
 
-interface IArmStrengthSensor {
-	in void retrieve_arm_str();
+interface IArmForceSensor {
+	in void retrieve_arm_force();
 	
 	behaviour {
-		on retrieve_arm_str: {}
+		on retrieve_arm_force: {}
 	}
 }
 

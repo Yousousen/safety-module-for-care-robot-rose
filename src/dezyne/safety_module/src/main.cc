@@ -47,8 +47,8 @@
  */
 #define MAX_KE 300
 #define MAX_RE 300
-#define MAX_STR 50
-#define MAX_STR_PAYLOAD 80
+#define MAX_FORCE 50
+#define MAX_FORCE_PAYLOAD 80
 
 /**** Prototypes ****/
 // Run the safety module
@@ -67,14 +67,14 @@ void reset_led();
 
 double retrieve_acceleration();
 double retrieve_angular_displacement();
-double retrieve_strength();
+double retrieve_force();
 double retrieve_position();
 
 /*** data set functions ***/
 void set_acceleration(double acceleration);
 void set_angular_displacement(double angular_displacement);
-void set_arm_strength(double arm_strength, bool has_payload);
-void set_arm_position(double arm_strength, bool is_moving);
+void set_arm_force(double arm_force, bool has_payload);
+void set_arm_position(double arm_force, bool is_moving);
 
 bool robot_is_moving();
 bool arm_is_folded();
@@ -89,15 +89,15 @@ void retrieve_ke_from_acc();
 Behavior::type resolve_ke_from_acc();
 void retrieve_re_from_ang_vel();
 Behavior::type resolve_re_from_ang_vel();
-void retrieve_arm_str();
-Behavior::type resolve_arm_str();
+void retrieve_arm_force();
+Behavior::type resolve_arm_force();
 void retrieve_arm_pos();
 Behavior::type resolve_arm_pos();
 
 void initialise();
 void destruct();
 
-/* void what_triggered(bool acc, bool angacc, bool str, bool pos); */
+/* void what_triggered(bool acc, bool angacc, bool force, bool pos); */
 
 /*** Threads related ***/
 
@@ -113,9 +113,9 @@ static void* rt_retrieve_acceleration(void* arg);
 // nrt_retrieve_angular_displacement.
 static void* rt_retrieve_angular_displacement(void* arg);
 
-// Sets the arm strength, retrieves arm strength from
-// nrt_retrieve_arm_strength.
-static void* rt_retrieve_arm_strength(void* arg);
+// Sets the arm force, retrieves arm force from
+// nrt_retrieve_arm_force.
+static void* rt_retrieve_arm_force(void* arg);
 
 // Sets the arm position, retrieves arm position from
 // nrt_retrieve_arm_position.
@@ -157,10 +157,10 @@ static void* nrt_light_led(void *arg);
  */
 static void* nrt_retrieve_imu(void *arg);
 
-/* The arm strength driver. Sends current strength over an XDDP socket to
- * rt_retrieve_arm_strength
+/* The arm force driver. Sends current force over an XDDP socket to
+ * rt_retrieve_arm_force
  */
-static void* nrt_retrieve_arm_strength(void *arg);
+static void* nrt_retrieve_arm_force(void *arg);
 
 /* The arm position driver. Sends current position over an XDDP socket to
  * rt_retrieve_arm_position
@@ -245,7 +245,7 @@ struct AngularAcceleration* angular_acceleration = nullptr;
 
 double kinetic_energy;
 double rotational_energy;
-double arm_strength;
+double arm_force;
 int arm_position;
 
 CareRobotRose* rose = nullptr;
@@ -278,7 +278,7 @@ static int initialise_semaphores(std::map<std::string, sem_t>& s) {
     s["led"];
     s["retrieve_acc"];
     s["retrieve_ang_disp"];
-    s["retrieve_arm_str"];
+    s["retrieve_arm_force"];
     s["retrieve_arm_pos"];
     s["sample_acc"];
     s["sample_ang_vel"];
@@ -309,7 +309,7 @@ static int initialise_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     m["fb"];
     m["acc"];
     m["ang_disp"];
-    m["arm_str"];
+    m["arm_force"];
     m["arm_pos"];
     m["ke"];
     m["re"];
@@ -368,7 +368,7 @@ ErrorCode_t roll() {
         return type;
     };
 
-    iResolver.in.resolve_arm_str = []() -> Behavior::type {
+    iResolver.in.resolve_arm_force = []() -> Behavior::type {
         return Behavior::type::Safe;
     };
 
@@ -376,19 +376,19 @@ ErrorCode_t roll() {
         return Behavior::type::Safe;
     };
 
-    /* iResolver.in.resolve_arm_str = []() -> Behavior::type { */
+    /* iResolver.in.resolve_arm_force = []() -> Behavior::type { */
     /*     int r; */
     /*     Behavior::type type; */
     /*     double str; */
     /*     bool has_payload; */
 
-    /*     r = safe_call([&]() { str = arm_strength; has_payload = */
-    /*             arm_has_payload(); }, &mutex["arm_str"]); */
+    /*     r = safe_call([&]() { str = arm_force; has_payload = */
+    /*             arm_has_payload(); }, &mutex["arm_force"]); */
     /*     if (r != OK) exit(EXIT_FAILURE); */
 
-    /*     if ( has_payload && str > MAX_STR_PAYLOAD) */
+    /*     if ( has_payload && str > MAX_FORCE_PAYLOAD) */
     /*         type = Behavior::type::Unsafe; */
-    /*     else if (str > MAX_STR) */
+    /*     else if (str > MAX_FORCE) */
     /*         type = Behavior::type::Unsafe; */
     /*     else */
     /*         type = Behavior::type::Safe; */
@@ -436,7 +436,7 @@ ErrorCode_t roll() {
     s.iAngularVelocitySensor.in.retrieve_re_from_ang_vel =
         retrieve_re_from_ang_vel;
     s.iArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos;
-    s.iArmStrengthSensor.in.retrieve_arm_str = retrieve_arm_str;
+    s.iArmForceSensor.in.retrieve_arm_force = retrieve_arm_force;
 
     // Check bindings
     s.check_bindings();
@@ -481,14 +481,14 @@ ErrorCode_t roll() {
     static pthread_t th_rt_light_led;
     // real-time threads for retrieving data.
     static pthread_t th_rt_ret_acc, th_rt_ret_ang_disp;
-    static pthread_t th_rt_ret_arm_str, th_rt_ret_arm_pos;
+    static pthread_t th_rt_ret_arm_force, th_rt_ret_arm_pos;
     // real-time threads for sampling sensor data.
     static pthread_t th_rt_sample_acc, th_rt_sample_ang_disp;
 
     // non-real-time thread for lighting the LED matrix.
     static pthread_t th_nrt_light_led;
     // non-real-time thread for retrieving sensor data from the IMU and ROS.
-    static pthread_t th_nrt_ret_imu, th_nrt_ret_arm_str, th_nrt_ret_arm_pos;
+    static pthread_t th_nrt_ret_imu, th_nrt_ret_arm_force, th_nrt_ret_arm_pos;
 
     // Information about periodic  threads.
     static struct th_info th_info;
@@ -535,9 +535,9 @@ ErrorCode_t roll() {
     if (errno)
         fail("pthread_create");
 
-    // Start thread rt_retrieve_arm_strength
-    errno = pthread_create(&th_rt_ret_arm_str, &rtattr,
-            &rt_retrieve_arm_strength, &threadargs);
+    // Start thread rt_retrieve_arm_force
+    errno = pthread_create(&th_rt_ret_arm_force, &rtattr,
+            &rt_retrieve_arm_force, &threadargs);
     if (errno)
         fail("pthread_create");
 
@@ -571,9 +571,9 @@ ErrorCode_t roll() {
     if (errno)
         fail("pthread_create");
 
-    // Start thread nrt_retrieve_arm_strength
-    errno = pthread_create(&th_nrt_ret_arm_str, &nrtattr,
-            &nrt_retrieve_arm_strength, NULL);
+    // Start thread nrt_retrieve_arm_force
+    errno = pthread_create(&th_nrt_ret_arm_force, &nrtattr,
+            &nrt_retrieve_arm_force, NULL);
     if (errno)
         fail("pthread_create");
 
@@ -650,13 +650,13 @@ ErrorCode_t roll() {
 
     // Kill threads
     pthread_cancel(th_nrt_light_led);
-    pthread_cancel(th_nrt_ret_arm_str);
+    pthread_cancel(th_nrt_ret_arm_force);
     pthread_cancel(th_nrt_ret_arm_pos);
     pthread_cancel(th_nrt_ret_imu);
     pthread_cancel(th_rt_light_led);
     pthread_cancel(th_rt_ret_acc);
     pthread_cancel(th_rt_ret_ang_disp);
-    pthread_cancel(th_rt_ret_arm_str);
+    pthread_cancel(th_rt_ret_arm_force);
     pthread_cancel(th_rt_ret_arm_pos);
     pthread_cancel(th_rt_sample_acc);
     pthread_cancel(th_rt_sample_ang_disp);
@@ -667,12 +667,12 @@ ErrorCode_t roll() {
 
     pthread_join(th_nrt_light_led, NULL);
     pthread_join(th_nrt_ret_arm_pos, NULL);
-    pthread_join(th_nrt_ret_arm_str, NULL);
+    pthread_join(th_nrt_ret_arm_force, NULL);
     pthread_join(th_nrt_ret_imu, NULL);
     pthread_join(th_rt_light_led, NULL);
     pthread_join(th_rt_ret_acc, NULL);
     pthread_join(th_rt_ret_ang_disp, NULL);
-    pthread_join(th_rt_ret_arm_str, NULL);
+    pthread_join(th_rt_ret_arm_force, NULL);
     pthread_join(th_rt_ret_arm_pos, NULL);
     pthread_join(th_rt_sample_acc, NULL);
     pthread_join(th_rt_sample_ang_disp, NULL);
@@ -833,9 +833,9 @@ double retrieve_angular_displacement() {
     return rand() % 5 + 1;
 }
 
-double retrieve_strength() {
+double retrieve_force() {
     srand((unsigned)time(NULL));
-    return rand() % MAX_STR_PAYLOAD;
+    return rand() % MAX_FORCE_PAYLOAD;
 }
 
 double retrieve_position() {
@@ -855,10 +855,10 @@ void set_angular_displacement(double angular_displacement) {
     ::angular_displacement->change = ::angular_displacement->current - previous;
 }
 
-void set_arm_strength(double arm_strength, bool has_payload) {
-    auto previous = rose->arm->current_strength;
-    rose->arm->current_strength = arm_strength;
-    rose->arm->change_strength = arm_strength - previous;
+void set_arm_force(double arm_force, bool has_payload) {
+    auto previous = rose->arm->current_force;
+    rose->arm->current_force = arm_force;
+    rose->arm->change_force = arm_force - previous;
     rose->arm->has_payload = has_payload;
 }
 
@@ -910,12 +910,12 @@ void retrieve_re_from_ang_vel() {
     // need not do anything here.
 }
 
-void retrieve_arm_str() {
+void retrieve_arm_force() {
     int r = safe_call( []() {
-            arm_strength = rose->arm->current_strength;
-            /* printf("arm strength = %g\n", arm_strength); */
+            arm_force = rose->arm->current_force;
+            /* printf("arm force = %g\n", arm_force); */
             },
-            &mutex["arm_str"]);
+            &mutex["arm_force"]);
     if (r != OK) exit(EXIT_FAILURE);
 }
 
@@ -946,7 +946,7 @@ bool arm_has_payload() {
 /*     printf("Unsafe behavior caused by:\n"); */
 /*     if (acc)    printf("acceleration\n"); */
 /*     if (angacc) printf("angular acceleration\n"); */
-/*     if (str)    printf("arm strength\n"); */
+/*     if (str)    printf("arm force\n"); */
 /*     if (pos)    printf("arm position\n"); */
 /*     printf("<<<\n\n"); */
 /* } */
@@ -1193,7 +1193,7 @@ static void* rt_retrieve_angular_displacement(void* arg) {
     return NULL;
 }
 
-static void* rt_retrieve_arm_strength(void* arg) {
+static void* rt_retrieve_arm_force(void* arg) {
     int n = 0;
     int len;
     int ret;
@@ -1256,14 +1256,14 @@ static void* rt_retrieve_arm_strength(void* arg) {
         /* printf("   => \"%.*s\" received by peer\n", ret, buf); */
         n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
 
-        // buf contains both the strength and if we have a payload or not.
-        double strength = atof(buf);
+        // buf contains both the force and if we have a payload or not.
+        double force = atof(buf);
         // has_payload is sent as an integer after the ':' sign.
         bool has_payload = static_cast<bool>((atoi((strchr(buf, ':')+1))));
 
-        // Set arm strength
-        r = safe_call([=]() { set_arm_strength(strength, has_payload); },
-                &mutex["arm_str"]);
+        // Set arm force
+        r = safe_call([=]() { set_arm_force(force, has_payload); },
+                &mutex["arm_force"]);
         if (r != OK) exit(EXIT_FAILURE);
     }
     return NULL;
@@ -1502,9 +1502,9 @@ static void* nrt_retrieve_imu(void *arg) {
     return NULL;
 }
 
-static void* nrt_retrieve_arm_strength(void *arg) {
+static void* nrt_retrieve_arm_force(void *arg) {
     struct threadargs *args = (struct threadargs *)arg;
-    double strength;
+    double force;
     static int has_payload = 0;
     char *devname;
     int fd, ret;
@@ -1518,9 +1518,9 @@ static void* nrt_retrieve_arm_strength(void *arg) {
         fail("open");
 
     while (1) {
-        // Wait for an up before retrieving arm strength.
+        // Wait for an up before retrieving arm force.
         // driver.
-        /* sem_wait(&semaphore["retrieve_arm_str"]); */
+        /* sem_wait(&semaphore["retrieve_arm_force"]); */
 
         // Poll at the same rate as the imu.
         usleep(imu_poll_interval);
@@ -1529,11 +1529,11 @@ static void* nrt_retrieve_arm_strength(void *arg) {
          * Here we should retrieve from ROS.
          * But for now, retrieve a random value.
          */
-        strength = retrieve_strength();
+        force = retrieve_force();
         has_payload ^= 1;
 
-        // Write retrieved strength to rt_retrieve_strength.
-        snprintf(buf, BUFSIZE, "%f:%d", strength, has_payload);
+        // Write retrieved force to rt_retrieve_force.
+        snprintf(buf, BUFSIZE, "%f:%d", force, has_payload);
         ret = write(fd, buf, BUFSIZE);
         if (ret <= 0)
             fail("write");
@@ -1560,7 +1560,7 @@ static void* nrt_retrieve_arm_position(void *arg) {
     while (1) {
         // Wait for an up before retrieving arm position.
         // driver.
-        /* sem_wait(&semaphore["retrieve_arm_str"]); */
+        /* sem_wait(&semaphore["retrieve_arm_force"]); */
 
         // Poll at the same rate as the imu.
         usleep(imu_poll_interval);

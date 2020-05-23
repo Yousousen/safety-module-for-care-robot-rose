@@ -73,11 +73,11 @@ void Neck::retrieve_turn() {
     this->change_turn = this->current_turn - previous_turn;
 }
 
-void Arm::retrieve_strength() {
-    auto previous_strength = this->current_strength;
+void Arm::retrieve_force() {
+    auto previous_force = this->current_force;
     srand((unsigned)time(NULL));
-    this->current_strength = rand() % 100 + 1;
-    this->change_strength = this->current_strength - previous_strength;
+    this->current_force = rand() % 100 + 1;
+    this->change_force = this->current_force - previous_force;
     this->has_payload = static_cast<bool>(this->has_payload ^ 1);
 }
 
@@ -133,7 +133,7 @@ void CareRobotRose::retrieve_angular_acceleration() {
 void CareRobotRose::retrieve_all() {
     this->body->retrieve_lift();
     this->neck->retrieve_turn();
-    this->arm->retrieve_strength();
+    this->arm->retrieve_force();
     this->arm->retrieve_position();
     this->camera->retrieve_image();
     this->retrieve_position();
@@ -173,10 +173,10 @@ std::ostream& operator<< (std::ostream& os, const Neck& neck) {
 
 std::ostream& operator<< (std::ostream& os, const Arm& arm) {
     os  << "### Arm ###:\n"
-        << "current strength: "  << arm.current_strength << "\n"
-        << "change_strength: "   << arm.change_strength << "\n"
-        << "max_strength: "      << arm.max_strength << "\n"
-        << "min_strength: "      << arm.min_strength << "\n"
+        << "current force: "  << arm.current_force << "\n"
+        << "change_force: "   << arm.change_force << "\n"
+        << "max_force: "      << arm.max_force << "\n"
+        << "min_force: "      << arm.min_force << "\n"
         << "current position: "  << arm.current_position << "\n"
         << "change_position: "   << arm.change_position << "\n"
         << "max_position: "      << arm.max_position << "\n"

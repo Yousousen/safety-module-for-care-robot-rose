@@ -70,23 +70,23 @@ class Neck {
 class Arm {
     public:
         // Constructors
-        Arm() : current_strength(0.0), change_strength(0.0),
-        max_strength(0.0), min_strength(0.0), current_position(0),
+        Arm() : current_force(0.0), change_force(0.0),
+        max_force(0.0), min_force(0.0), current_position(0),
         change_position(0.0), max_position(0.0), min_position(0.0),
         has_payload(false) {};
 
         Arm(double curs, double chgs, double maxs, double mins, double
                 curp, double chgp, double maxp, double minp, double pay) :
-            current_strength(curs), change_strength(chgs), max_strength(maxs),
-            min_strength(mins), current_position(curp), change_position(chgp),
+            current_force(curs), change_force(chgs), max_force(maxs),
+            min_force(mins), current_position(curp), change_position(chgp),
             max_position(maxp), min_position(minp), has_payload(pay) {};
 
 
         // Properties
-        double current_strength;
-        double change_strength;
-        double max_strength;
-        double min_strength;
+        double current_force;
+        double change_force;
+        double max_force;
+        double min_force;
         int current_position;
         int change_position;
         int max_position;
@@ -96,7 +96,7 @@ class Arm {
         bool has_payload;
 
         // Methods
-        void retrieve_strength();
+        void retrieve_force();
         void retrieve_position();
 
         friend std::ostream& operator<< (std::ostream&, const Arm&);

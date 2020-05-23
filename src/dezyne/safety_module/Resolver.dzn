@@ -3,7 +3,7 @@ import DataTypes.dzn;
 interface IResolver {
 	in Behavior resolve_ke_from_acc();
 	in Behavior resolve_re_from_ang_vel();
-	in Behavior resolve_arm_str();
+	in Behavior resolve_arm_force();
 	in Behavior resolve_arm_pos();
 
 	behaviour {
@@ -16,7 +16,7 @@ interface IResolver {
 		on resolve_arm_pos: reply(Behavior.Safe); 
 		on resolve_arm_pos: reply(Behavior.Unsafe); 
 
-		on resolve_arm_str: reply(Behavior.Safe); 
-		on resolve_arm_str: reply(Behavior.Unsafe); 
+		on resolve_arm_force: reply(Behavior.Safe); 
+		on resolve_arm_force: reply(Behavior.Unsafe); 
 	}
 }

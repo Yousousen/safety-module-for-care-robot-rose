@@ -3,7 +3,7 @@ import LEDControl.dzn;
 import KineticEnergyCheck.dzn;
 import RotationalEnergyCheck.dzn;
 import ArmPositionCheck.dzn;
-import ArmStrengthCheck.dzn;
+import ArmForceCheck.dzn;
 import BaseCaseCheck.dzn;
 import Sensors.dzn;
 
@@ -13,7 +13,7 @@ component System {
 	requires IAccelerationSensor iAccelerationSensor;
 	requires IAngularVelocitySensor iAngularVelocitySensor;
 	requires IArmPositionSensor iArmPositionSensor;
-	requires IArmStrengthSensor iArmStrengthSensor;
+	requires IArmForceSensor iArmForceSensor;
 	
 	system {
 		/*** Components ***/
@@ -21,7 +21,7 @@ component System {
 		KineticEnergyCheck kineticEnergyCheck;
 		RotationalEnergyCheck rotationalEnergyCheck;
 		ArmPositionCheck armPositionCheck;
-		ArmStrengthCheck armStrengthCheck;
+		ArmForceCheck armForceCheck;
 		BaseCaseCheck baseCaseCheck;
 
 		iController <=> controller.iController;
@@ -30,15 +30,15 @@ component System {
 		/*** Bind sensors ***/
 		iAccelerationSensor <=> kineticEnergyCheck.iAccelerationSensor;
 		iAngularVelocitySensor <=> rotationalEnergyCheck.iAngularVelocitySensor;
-		iArmStrengthSensor <=> armStrengthCheck.iArmStrengthSensor;
+		iArmForceSensor <=> armForceCheck.iArmForceSensor;
 		iArmPositionSensor <=> armPositionCheck.iArmPositionSensor;
 
  		/*** Check all four ***/
 		controller.iNext <=> kineticEnergyCheck.iKineticEnergyCheck;
         kineticEnergyCheck.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
 		rotationalEnergyCheck.iNext <=> armPositionCheck.iArmPositionCheck;
-		armPositionCheck.iNext <=> armStrengthCheck.iArmStrengthCheck;
-		armStrengthCheck.iNext <=> baseCaseCheck.iRoot;
+		armPositionCheck.iNext <=> armForceCheck.iArmForceCheck;
+		armForceCheck.iNext <=> baseCaseCheck.iRoot;
 
 
 		/*** Acceleration check only ***/
@@ -54,9 +54,9 @@ component System {
 //		kineticEnergyCheck.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
 //		rotationalEnergyCheck.iNext <=> baseCaseCheck.iRoot;
 
-		/*** arm strength and arm checks only ***/
-//		controller.iNext <=> armStrengthCheck.iArmStrengthCheck;
-//		armStrengthCheck.iNext <=> armPositionCheck.iArmPositionCheck;
+		/*** arm Force and arm checks only ***/
+//		controller.iNext <=> armForceCheck.iArmForceCheck;
+//		armForceCheck.iNext <=> armPositionCheck.iArmPositionCheck;
 //		armPositionCheck.iNext <=> baseCaseCheck.iRoot;
 	}
 }

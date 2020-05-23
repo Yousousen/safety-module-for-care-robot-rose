@@ -52,8 +52,8 @@ struct UnsafeTriggered
 #endif // ENUM_UnsafeTriggered
 
 /********************************** COMPONENT *********************************/
-#ifndef ARMSTRENGTHCHECK_HH
-#define ARMSTRENGTHCHECK_HH
+#ifndef ARMFORCECHECK_HH
+#define ARMFORCECHECK_HH
 
 #include "Sensors.hh"
 #include "ISafetyCheck.hh"
@@ -62,7 +62,7 @@ struct UnsafeTriggered
 
 
 
-struct ArmStrengthCheck
+struct ArmForceCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
@@ -71,29 +71,29 @@ struct ArmStrengthCheck
 
   ::Behavior::type reply_Behavior;
 
-  std::function<void ()> out_iArmStrengthCheck;
+  std::function<void ()> out_iArmForceCheck;
 
-  ::ISafetyCheck iArmStrengthCheck;
+  ::ISafetyCheck iArmForceCheck;
 
-  ::IArmStrengthSensor iArmStrengthSensor;
+  ::IArmForceSensor iArmForceSensor;
   ::ISafetyCheck iNext;
   ::IResolver iResolver;
 
 
-  ArmStrengthCheck(const dzn::locator&);
+  ArmForceCheck(const dzn::locator&);
   void check_bindings() const;
   void dump_tree(std::ostream& os) const;
-  friend std::ostream& operator << (std::ostream& os, const ArmStrengthCheck& m)  {
+  friend std::ostream& operator << (std::ostream& os, const ArmForceCheck& m)  {
     (void)m;
     return os << "[" << "]" ;
   }
   private:
-  ::Behavior::type iArmStrengthCheck_do_check();
+  ::Behavior::type iArmForceCheck_do_check();
 
   ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // ARMSTRENGTHCHECK_HH
+#endif // ARMFORCECHECK_HH
 
 /********************************** COMPONENT *********************************/
 
