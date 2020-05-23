@@ -48,6 +48,9 @@ void Controller::iController_initialise()
   if (systemState == ::Controller::State::Idle) 
   {
     this->iLEDControl.in.initialise_framebuffer();
+    this->iController.out.initialise_imu();
+    this->iController.out.initialise_mutexes();
+    this->iController.out.initialise_semaphores();
     systemState = ::Controller::State::Operating;
   }
   else if (!(systemState == ::Controller::State::Idle)) dzn_locator.get<dzn::illegal_handler>().illegal();
@@ -61,6 +64,8 @@ void Controller::iController_destruct()
   if (systemState == ::Controller::State::Operating) 
   {
     this->iLEDControl.in.destruct_framebuffer();
+    this->iController.out.destruct_mutexes();
+    this->iController.out.destruct_semaphores();
     systemState = ::Controller::State::Idle;
   }
   else if (!(systemState == ::Controller::State::Operating)) dzn_locator.get<dzn::illegal_handler>().illegal();

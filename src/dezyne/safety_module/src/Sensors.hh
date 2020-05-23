@@ -156,6 +156,50 @@ inline void connect (IArmForceSensor& provided, IArmForceSensor& required)
 
 /********************************** INTERFACE *********************************/
 /********************************** INTERFACE *********************************/
+#ifndef IARMTORQUESENSOR_HH
+#define IARMTORQUESENSOR_HH
+
+
+
+struct IArmTorqueSensor
+{
+
+  struct
+  {
+    std::function< void()> retrieve_arm_torque;
+  } in;
+
+  struct
+  {
+  } out;
+
+  dzn::port::meta meta;
+  inline IArmTorqueSensor(const dzn::port::meta& m) : meta(m) {}
+
+  void check_bindings() const
+  {
+    if (! in.retrieve_arm_torque) throw dzn::binding_error(meta, "in.retrieve_arm_torque");
+
+
+  }
+};
+
+inline void connect (IArmTorqueSensor& provided, IArmTorqueSensor& required)
+{
+  provided.out = required.out;
+  required.in = provided.in;
+  provided.meta.requires = required.meta.requires;
+  required.meta.provides = provided.meta.provides;
+}
+
+
+
+
+
+#endif // IARMTORQUESENSOR_HH
+
+/********************************** INTERFACE *********************************/
+/********************************** INTERFACE *********************************/
 #ifndef IARMPOSITIONSENSOR_HH
 #define IARMPOSITIONSENSOR_HH
 

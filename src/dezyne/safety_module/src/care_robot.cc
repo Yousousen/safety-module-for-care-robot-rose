@@ -81,6 +81,14 @@ void Arm::retrieve_force() {
     this->has_payload = static_cast<bool>(this->has_payload ^ 1);
 }
 
+void Arm::retrieve_torque() {
+    auto previous_torque = this->current_torque;
+    srand((unsigned)time(NULL));
+    this->current_torque = rand() % 100 + 1;
+    this->change_torque = this->current_torque - previous_torque;
+    this->has_payload = static_cast<bool>(this->has_payload ^ 1);
+}
+
 void Arm::retrieve_position() {
     auto previous_position = this->current_position;
     srand((unsigned)time(NULL));
@@ -134,6 +142,7 @@ void CareRobotRose::retrieve_all() {
     this->body->retrieve_lift();
     this->neck->retrieve_turn();
     this->arm->retrieve_force();
+    this->arm->retrieve_torque();
     this->arm->retrieve_position();
     this->camera->retrieve_image();
     this->retrieve_position();
@@ -177,6 +186,10 @@ std::ostream& operator<< (std::ostream& os, const Arm& arm) {
         << "change_force: "   << arm.change_force << "\n"
         << "max_force: "      << arm.max_force << "\n"
         << "min_force: "      << arm.min_force << "\n"
+        << "current torque: "  << arm.current_torque << "\n"
+        << "change_torque: "   << arm.change_torque << "\n"
+        << "max_torque: "      << arm.max_torque << "\n"
+        << "min_torque: "      << arm.min_torque << "\n"
         << "current position: "  << arm.current_position << "\n"
         << "change_position: "   << arm.change_position << "\n"
         << "max_position: "      << arm.max_position << "\n"

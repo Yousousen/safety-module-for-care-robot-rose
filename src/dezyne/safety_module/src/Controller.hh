@@ -84,6 +84,11 @@ struct IController
 
   struct
   {
+    std::function< void()> initialise_imu;
+    std::function< void()> initialise_mutexes;
+    std::function< void()> initialise_semaphores;
+    std::function< void()> destruct_mutexes;
+    std::function< void()> destruct_semaphores;
   } out;
 
   dzn::port::meta meta;
@@ -96,6 +101,11 @@ struct IController
     if (! in.reset) throw dzn::binding_error(meta, "in.reset");
     if (! in.do_checks) throw dzn::binding_error(meta, "in.do_checks");
 
+    if (! out.initialise_imu) throw dzn::binding_error(meta, "out.initialise_imu");
+    if (! out.initialise_mutexes) throw dzn::binding_error(meta, "out.initialise_mutexes");
+    if (! out.initialise_semaphores) throw dzn::binding_error(meta, "out.initialise_semaphores");
+    if (! out.destruct_mutexes) throw dzn::binding_error(meta, "out.destruct_mutexes");
+    if (! out.destruct_semaphores) throw dzn::binding_error(meta, "out.destruct_semaphores");
 
   }
 };

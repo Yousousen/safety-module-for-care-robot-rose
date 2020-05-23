@@ -48,7 +48,8 @@
 #define MAX_KE 300
 #define MAX_RE 300
 #define MAX_FORCE 50
-#define MAX_FORCE_PAYLOAD 80
+#define MAX_TORQUE 50
+#define MAX_TORQUE_PAYLOAD 80
 
 /**** Prototypes ****/
 // Run the safety module
@@ -59,6 +60,7 @@ ErrorCode_t roll();
 int is_framebuffer_device(const struct dirent *dir);
 int open_fbdev(const char *dev_name);
 void initialise_framebuffer();
+void initialise_imu();
 void destruct_framebuffer();
 // Light the led matrix in the specified color.
 void light_led(unsigned color);
@@ -68,13 +70,15 @@ void reset_led();
 double retrieve_acceleration();
 double retrieve_angular_displacement();
 double retrieve_force();
+double retrieve_torque();
 double retrieve_position();
 
 /*** data set functions ***/
 void set_acceleration(double acceleration);
 void set_angular_displacement(double angular_displacement);
-void set_arm_force(double arm_force, bool has_payload);
-void set_arm_position(double arm_force, bool is_moving);
+void set_arm_force(double arm_force);
+void set_arm_torque(double arm_torque, bool has_payload);
+void set_arm_position(double arm_position, bool is_moving);
 
 bool robot_is_moving();
 bool arm_is_folded();
@@ -90,7 +94,9 @@ Behavior::type resolve_ke_from_acc();
 void retrieve_re_from_ang_vel();
 Behavior::type resolve_re_from_ang_vel();
 void retrieve_arm_force();
+void retrieve_arm_torque();
 Behavior::type resolve_arm_force();
+Behavior::type resolve_arm_torque();
 void retrieve_arm_pos();
 Behavior::type resolve_arm_pos();
 
@@ -116,6 +122,10 @@ static void* rt_retrieve_angular_displacement(void* arg);
 // Sets the arm force, retrieves arm force from
 // nrt_retrieve_arm_force.
 static void* rt_retrieve_arm_force(void* arg);
+
+// Sets the arm torque, retrieves arm torque from
+// nrt_retrieve_arm_torque.
+static void* rt_retrieve_arm_torque(void* arg);
 
 // Sets the arm position, retrieves arm position from
 // nrt_retrieve_arm_position.
@@ -162,6 +172,11 @@ static void* nrt_retrieve_imu(void *arg);
  */
 static void* nrt_retrieve_arm_force(void *arg);
 
+/* The arm torque driver. Sends current torque over an XDDP socket to
+ * rt_retrieve_arm_torque
+ */
+static void* nrt_retrieve_arm_torque(void *arg);
+
 /* The arm position driver. Sends current position over an XDDP socket to
  * rt_retrieve_arm_position
  */
@@ -183,11 +198,11 @@ static void fail(const char *reason);
 
 void dzn_light_led(char* color);
 
-static int initialise_mutexes(std::map<std::string, pthread_mutex_t>& m);
-static int destruct_mutexes(std::map<std::string, pthread_mutex_t>& m);
+static int initialise_mutexes();
+static int destruct_mutexes();
 
-static int initialise_semaphores(std::map<std::string, sem_t>& s);
-static int destruct_semaphores(std::map<std::string, sem_t>& s);
+static int initialise_semaphores();
+static int destruct_semaphores();
 
 // calls function f in a thread safe manner, locking the mutex before the call.
 static inline int safe_call(std::function<void()> f, pthread_mutex_t* mutex) {
@@ -246,6 +261,7 @@ struct AngularAcceleration* angular_acceleration = nullptr;
 double kinetic_energy;
 double rotational_energy;
 double arm_force;
+double arm_torque;
 int arm_position;
 
 CareRobotRose* rose = nullptr;
@@ -273,18 +289,18 @@ auto main() -> int {
 }
 
 
-static int initialise_semaphores(std::map<std::string, sem_t>& s) {
+static int initialise_semaphores() {
     // Make semaphores
-    s["led"];
-    s["retrieve_acc"];
-    s["retrieve_ang_disp"];
-    s["retrieve_arm_force"];
-    s["retrieve_arm_pos"];
-    s["sample_acc"];
-    s["sample_ang_vel"];
+    semaphore["led"];
+    semaphore["retrieve_acc"];
+    semaphore["retrieve_ang_disp"];
+    semaphore["retrieve_arm_force"];
+    semaphore["retrieve_arm_pos"];
+    semaphore["sample_acc"];
+    semaphore["sample_ang_vel"];
 
     // Initialise semaphores.
-    for (auto it = s.begin(); it != s.end(); ++it) {
+    for (auto it = semaphore.begin(); it != semaphore.end(); ++it) {
         if (0 != (errno = sem_init(&it->second, 0, 0))) {
             perror("sem_init() failed");
             return NOT_OK;
@@ -293,8 +309,8 @@ static int initialise_semaphores(std::map<std::string, sem_t>& s) {
     return OK;
 }
 
-static int destruct_semaphores(std::map<std::string, sem_t>& s) {
-    for (auto it = s.begin(); it != s.end(); ++it) {
+static int destruct_semaphores() {
+    for (auto it = semaphore.begin(); it != semaphore.end(); ++it) {
         if (0 != (errno = sem_destroy(&it->second))) {
             perror("pthread_mutex_destroy() failed");
             return NOT_OK;
@@ -303,19 +319,20 @@ static int destruct_semaphores(std::map<std::string, sem_t>& s) {
     return OK;
 }
 
-static int initialise_mutexes(std::map<std::string, pthread_mutex_t>& m) {
+static int initialise_mutexes() {
     // Make mutex
-    m["color"];
-    m["fb"];
-    m["acc"];
-    m["ang_disp"];
-    m["arm_force"];
-    m["arm_pos"];
-    m["ke"];
-    m["re"];
+    mutex["color"];
+    mutex["fb"];
+    mutex["acc"];
+    mutex["ang_disp"];
+    mutex["arm_force"];
+    mutex["arm_torque"];
+    mutex["arm_pos"];
+    mutex["ke"];
+    mutex["re"];
 
     // Initialise mutexes.
-    for (auto it = m.begin(); it != m.end(); ++it) {
+    for (auto it = mutex.begin(); it != mutex.end(); ++it) {
         if (0 != (errno = pthread_mutex_init(&it->second, NULL))) {
             perror("pthread_mutex_init() failed");
             return NOT_OK;
@@ -324,8 +341,8 @@ static int initialise_mutexes(std::map<std::string, pthread_mutex_t>& m) {
     return OK;
 }
 
-static int destruct_mutexes(std::map<std::string, pthread_mutex_t>& m) {
-    for (auto it = m.begin(); it != m.end(); ++it) {
+static int destruct_mutexes() {
+    for (auto it = mutex.begin(); it != mutex.end(); ++it) {
         if (0 != (errno = pthread_mutex_destroy(&it->second))) {
             perror("pthread_mutex_destroy() failed");
             return NOT_OK;
@@ -372,6 +389,10 @@ ErrorCode_t roll() {
         return Behavior::type::Safe;
     };
 
+    iResolver.in.resolve_arm_torque = []() -> Behavior::type {
+        return Behavior::type::Safe;
+    };
+
     iResolver.in.resolve_arm_pos = []() -> Behavior::type {
         return Behavior::type::Safe;
     };
@@ -389,6 +410,25 @@ ErrorCode_t roll() {
     /*     if ( has_payload && str > MAX_FORCE_PAYLOAD) */
     /*         type = Behavior::type::Unsafe; */
     /*     else if (str > MAX_FORCE) */
+    /*         type = Behavior::type::Unsafe; */
+    /*     else */
+    /*         type = Behavior::type::Safe; */
+    /*     return type; */
+    /* }; */
+
+    /* iResolver.in.resolve_arm_torque = []() -> Behavior::type { */
+    /*     int r; */
+    /*     Behavior::type type; */
+    /*     double str; */
+    /*     bool has_payload; */
+
+    /*     r = safe_call([&]() { str = arm_torque; has_payload = */
+    /*             arm_has_payload(); }, &mutex["arm_torque"]); */
+    /*     if (r != OK) exit(EXIT_FAILURE); */
+
+    /*     if ( has_payload && str > MAX_TORQUE_PAYLOAD) */
+    /*         type = Behavior::type::Unsafe; */
+    /*     else if (str > MAX_torque) */
     /*         type = Behavior::type::Unsafe; */
     /*     else */
     /*         type = Behavior::type::Safe; */
@@ -432,11 +472,17 @@ ErrorCode_t roll() {
     s.iLEDControl.in.light_led_red = dzn_light_led;
     s.iLEDControl.in.light_led_blue = dzn_light_led;
     s.iLEDControl.in.reset_led = reset_led;
+    s.iController.out.initialise_imu = initialise_imu;
+    s.iController.out.initialise_mutexes = initialise_mutexes;
+    s.iController.out.initialise_semaphores = initialise_semaphores;
+    s.iController.out.destruct_mutexes = destruct_mutexes;
+    s.iController.out.destruct_semaphores = destruct_semaphores;
     s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
     s.iAngularVelocitySensor.in.retrieve_re_from_ang_vel =
         retrieve_re_from_ang_vel;
     s.iArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos;
     s.iArmForceSensor.in.retrieve_arm_force = retrieve_arm_force;
+    s.iArmTorqueSensor.in.retrieve_arm_torque = retrieve_arm_torque;
 
     // Check bindings
     s.check_bindings();
@@ -445,29 +491,6 @@ ErrorCode_t roll() {
      * Initialise system
      */
     s.iController.in.initialise();
-
-    // Initialse inertial measurement unit related matters
-    RTIMUSettings *settings = new RTIMUSettings("./RTIMULib");
-    imu = RTIMU::createIMU(settings);
-    if ((imu == NULL) || (imu->IMUType() == RTIMU_TYPE_NULL)) {
-        printf("No IMU found\n");
-        exit(1);
-    }
-
-    //  This is an opportunity to manually override any settings before the
-    //  call IMUInit
-
-    //  Set up IMU
-    imu->IMUInit();
-
-    //  This is a convenient place to change fusion parameters.
-    imu->setSlerpPower(0.02);
-    imu->setGyroEnable(true);
-    imu->setAccelEnable(true);
-    imu->setCompassEnable(true);
-
-    // Set poll interval.
-    imu_poll_interval = imu->IMUGetPollInterval() * 1E5;
 
     /*** Threads related ***/
     struct sched_param rtparam = { .sched_priority = 42 };
@@ -481,14 +504,15 @@ ErrorCode_t roll() {
     static pthread_t th_rt_light_led;
     // real-time threads for retrieving data.
     static pthread_t th_rt_ret_acc, th_rt_ret_ang_disp;
-    static pthread_t th_rt_ret_arm_force, th_rt_ret_arm_pos;
+    static pthread_t th_rt_ret_arm_force, th_rt_ret_arm_torque, th_rt_ret_arm_pos;
     // real-time threads for sampling sensor data.
     static pthread_t th_rt_sample_acc, th_rt_sample_ang_disp;
 
     // non-real-time thread for lighting the LED matrix.
     static pthread_t th_nrt_light_led;
     // non-real-time thread for retrieving sensor data from the IMU and ROS.
-    static pthread_t th_nrt_ret_imu, th_nrt_ret_arm_force, th_nrt_ret_arm_pos;
+    static pthread_t th_nrt_ret_imu, th_nrt_ret_arm_force;
+    static pthread_t th_nrt_ret_arm_torque, th_nrt_ret_arm_pos;
 
     // Information about periodic  threads.
     static struct th_info th_info;
@@ -512,11 +536,6 @@ ErrorCode_t roll() {
     pthread_attr_setschedpolicy(&rtattr, SCHED_FIFO);
     pthread_attr_setschedparam(&rtattr, &rtparam);
 
-    // Initialise mutexes
-    initialise_mutexes(mutex);
-    // Initialise semaphores
-    initialise_semaphores(semaphore);
-
     /*** Start threads ***/
     // Start thread rt_light_led
     errno = pthread_create(&th_rt_light_led, &rtattr, &rt_light_led, NULL);
@@ -538,6 +557,12 @@ ErrorCode_t roll() {
     // Start thread rt_retrieve_arm_force
     errno = pthread_create(&th_rt_ret_arm_force, &rtattr,
             &rt_retrieve_arm_force, &threadargs);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread rt_retrieve_arm_torque
+    errno = pthread_create(&th_rt_ret_arm_torque, &rtattr,
+            &rt_retrieve_arm_torque, &threadargs);
     if (errno)
         fail("pthread_create");
 
@@ -574,6 +599,12 @@ ErrorCode_t roll() {
     // Start thread nrt_retrieve_arm_force
     errno = pthread_create(&th_nrt_ret_arm_force, &nrtattr,
             &nrt_retrieve_arm_force, NULL);
+    if (errno)
+        fail("pthread_create");
+
+    // Start thread nrt_retrieve_arm_torque
+    errno = pthread_create(&th_nrt_ret_arm_torque, &nrtattr,
+            &nrt_retrieve_arm_torque, NULL);
     if (errno)
         fail("pthread_create");
 
@@ -645,18 +676,20 @@ ErrorCode_t roll() {
 #endif
     printf("Stopping\n");
 
-    // Destruct framebuffer
+    // Destruct system
     s.iController.in.destruct();
 
     // Kill threads
     pthread_cancel(th_nrt_light_led);
     pthread_cancel(th_nrt_ret_arm_force);
+    pthread_cancel(th_nrt_ret_arm_torque);
     pthread_cancel(th_nrt_ret_arm_pos);
     pthread_cancel(th_nrt_ret_imu);
     pthread_cancel(th_rt_light_led);
     pthread_cancel(th_rt_ret_acc);
     pthread_cancel(th_rt_ret_ang_disp);
     pthread_cancel(th_rt_ret_arm_force);
+    pthread_cancel(th_rt_ret_arm_torque);
     pthread_cancel(th_rt_ret_arm_pos);
     pthread_cancel(th_rt_sample_acc);
     pthread_cancel(th_rt_sample_ang_disp);
@@ -668,11 +701,13 @@ ErrorCode_t roll() {
     pthread_join(th_nrt_light_led, NULL);
     pthread_join(th_nrt_ret_arm_pos, NULL);
     pthread_join(th_nrt_ret_arm_force, NULL);
+    pthread_join(th_nrt_ret_arm_torque, NULL);
     pthread_join(th_nrt_ret_imu, NULL);
     pthread_join(th_rt_light_led, NULL);
     pthread_join(th_rt_ret_acc, NULL);
     pthread_join(th_rt_ret_ang_disp, NULL);
     pthread_join(th_rt_ret_arm_force, NULL);
+    pthread_join(th_rt_ret_arm_torque, NULL);
     pthread_join(th_rt_ret_arm_pos, NULL);
     pthread_join(th_rt_sample_acc, NULL);
     pthread_join(th_rt_sample_ang_disp, NULL);
@@ -680,12 +715,6 @@ ErrorCode_t roll() {
 #if PERIODIC_CHECKS
     pthread_join(th_rt_checks, NULL);
 #endif
-
-    // Destroy mutexes
-    destruct_mutexes(mutex);
-
-    // Destroy semaphores
-    destruct_semaphores(semaphore);
 
     return OK;
 }
@@ -777,6 +806,31 @@ void initialise_framebuffer() {
     printf("Framebuffer initialised.\n");
 }
 
+void initialise_imu() {
+    // Initialse inertial measurement unit related matters
+    RTIMUSettings *settings = new RTIMUSettings("./RTIMULib");
+    imu = RTIMU::createIMU(settings);
+    if ((imu == NULL) || (imu->IMUType() == RTIMU_TYPE_NULL)) {
+        printf("No IMU found\n");
+        exit(1);
+    }
+    //  This is an opportunity to manually override any settings before the
+    //  call IMUInit
+
+    //  Set up IMU
+    imu->IMUInit();
+
+    //  This is a convenient place to change fusion parameters.
+
+    imu->setSlerpPower(0.02);
+    imu->setGyroEnable(true);
+    imu->setAccelEnable(true);
+    imu->setCompassEnable(true);
+
+    // Set poll interval.
+    imu_poll_interval = imu->IMUGetPollInterval() * 1E5;
+}
+
 void destruct_framebuffer() {
     memset(fb, 0, 128);
     munmap(fb, 128);
@@ -835,7 +889,12 @@ double retrieve_angular_displacement() {
 
 double retrieve_force() {
     srand((unsigned)time(NULL));
-    return rand() % MAX_FORCE_PAYLOAD;
+    return rand() % MAX_FORCE;
+}
+
+double retrieve_torque() {
+    srand((unsigned)time(NULL));
+    return rand() % MAX_TORQUE_PAYLOAD;
 }
 
 double retrieve_position() {
@@ -855,10 +914,16 @@ void set_angular_displacement(double angular_displacement) {
     ::angular_displacement->change = ::angular_displacement->current - previous;
 }
 
-void set_arm_force(double arm_force, bool has_payload) {
+void set_arm_force(double arm_force) {
     auto previous = rose->arm->current_force;
     rose->arm->current_force = arm_force;
     rose->arm->change_force = arm_force - previous;
+}
+
+void set_arm_torque(double arm_torque, bool has_payload) {
+    auto previous = rose->arm->current_torque;
+    rose->arm->current_torque = arm_torque;
+    rose->arm->change_torque = arm_torque - previous;
     rose->arm->has_payload = has_payload;
 }
 
@@ -919,6 +984,15 @@ void retrieve_arm_force() {
     if (r != OK) exit(EXIT_FAILURE);
 }
 
+void retrieve_arm_torque() {
+    int r = safe_call( []() {
+            arm_torque = rose->arm->current_torque;
+            /* printf("arm torque = %g\n", arm_torque); */
+            },
+            &mutex["arm_torque"]);
+    if (r != OK) exit(EXIT_FAILURE);
+}
+
 void retrieve_arm_pos() {
     int r = safe_call( []() {
             arm_position = rose->arm->current_position;
@@ -947,6 +1021,7 @@ bool arm_has_payload() {
 /*     if (acc)    printf("acceleration\n"); */
 /*     if (angacc) printf("angular acceleration\n"); */
 /*     if (str)    printf("arm force\n"); */
+/*     if (str)    printf("arm torque\n"); */
 /*     if (pos)    printf("arm position\n"); */
 /*     printf("<<<\n\n"); */
 /* } */
@@ -1234,7 +1309,7 @@ static void* rt_retrieve_arm_force(void* arg) {
      */
     memset(&saddr, 0, sizeof(saddr));
     saddr.sipc_family = AF_RTIPC;
-    saddr.sipc_port = XDDP_PORT_RET_STR;
+    saddr.sipc_port = XDDP_PORT_RET_FORCE;
     ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
     if (ret)
         fail("bind");
@@ -1258,12 +1333,86 @@ static void* rt_retrieve_arm_force(void* arg) {
 
         // buf contains both the force and if we have a payload or not.
         double force = atof(buf);
+
+        // Set arm force
+        r = safe_call([=]() { set_arm_force(force); },
+                &mutex["arm_force"]);
+        if (r != OK) exit(EXIT_FAILURE);
+    }
+    return NULL;
+}
+
+static void* rt_retrieve_arm_torque(void* arg) {
+    int n = 0;
+    int len;
+    int ret;
+    int r;
+    int s;
+    char buf[BUFSIZE];
+    struct sockaddr_ipc saddr;
+    size_t poolsz;
+
+    struct threadargs *args = (struct threadargs *)arg;
+
+    // Initialise XDDP
+    /*
+     * Get a datagram socket to bind to the RT endpoint. Each
+     * endpoint is represented by a port number within the XDDP
+     * protocol namespace.
+     */
+    s = socket(AF_RTIPC, SOCK_DGRAM, IPCPROTO_XDDP);
+    if (s < 0) {
+        perror("socket");
+        exit(EXIT_FAILURE);
+    }
+
+    /*
+     * Set a local 16k pool for the RT endpoint. Memory needed to
+     * convey datagrams will be pulled from this pool, instead of
+     * Xenomai's system pool.
+     */
+    poolsz = 16384; /* bytes */
+    ret = setsockopt(s, SOL_XDDP, XDDP_POOLSZ, &poolsz, sizeof(poolsz));
+    if (ret)
+        fail("setsockopt");
+    /*
+     * Bind the socket to the port, to setup a proxy to channel
+     * traffic to/from the Linux domain.
+     *
+     * saddr.sipc_port specifies the port number to use.
+     */
+    memset(&saddr, 0, sizeof(saddr));
+    saddr.sipc_family = AF_RTIPC;
+    saddr.sipc_port = XDDP_PORT_RET_TORQUE;
+    ret = bind(s, (struct sockaddr *)&saddr, sizeof(saddr));
+    if (ret)
+        fail("bind");
+
+    /*
+     * Retrieve a datagrams from the NRT endpoint via the proxy.
+     */
+    while (1) {
+        /* Read packets echoed by the non-real-time thread */
+        /*
+         * This call blocks if there is no data to receive. This however is not
+         * a problem as sample acceleration is not depended on this thread
+         * blocking or not. That is, sample acceleration can do its work
+         * independent of this thread.
+         */
+        ret = recvfrom(s, buf, sizeof(buf), 0, NULL, 0);
+        if (ret <= 0)
+            fail("recvfrom");
+        /* printf("   => \"%.*s\" received by peer\n", ret, buf); */
+        n = (n + 1) % (sizeof(buf) / sizeof(buf[0]));
+
+        // buf contains both the torque and if we have a payload or not.
+        double torque = atof(buf);
         // has_payload is sent as an integer after the ':' sign.
         bool has_payload = static_cast<bool>((atoi((strchr(buf, ':')+1))));
 
-        // Set arm force
-        r = safe_call([=]() { set_arm_force(force, has_payload); },
-                &mutex["arm_force"]);
+        // Set arm torque
+        r = safe_call([=]() { set_arm_torque(torque, has_payload); },
+                &mutex["arm_torque"]);
         if (r != OK) exit(EXIT_FAILURE);
     }
     return NULL;
@@ -1505,12 +1654,11 @@ static void* nrt_retrieve_imu(void *arg) {
 static void* nrt_retrieve_arm_force(void *arg) {
     struct threadargs *args = (struct threadargs *)arg;
     double force;
-    static int has_payload = 0;
     char *devname;
     int fd, ret;
     char buf[BUFSIZE];
 
-    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_STR) < 0)
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_FORCE) < 0)
         fail("asprintf");
     fd = open(devname, O_RDWR);
     free(devname);
@@ -1530,10 +1678,48 @@ static void* nrt_retrieve_arm_force(void *arg) {
          * But for now, retrieve a random value.
          */
         force = retrieve_force();
+        // Write retrieved force to rt_retrieve_force.
+        snprintf(buf, BUFSIZE, "%f", force);
+        ret = write(fd, buf, BUFSIZE);
+        if (ret <= 0)
+            fail("write");
+    }
+
+    return NULL;
+}
+
+static void* nrt_retrieve_arm_torque(void *arg) {
+    struct threadargs *args = (struct threadargs *)arg;
+    double torque;
+    static int has_payload = 0;
+    char *devname;
+    int fd, ret;
+    char buf[BUFSIZE];
+
+    if (asprintf(&devname, "/dev/rtp%d", XDDP_PORT_RET_TORQUE) < 0)
+        fail("asprintf");
+    fd = open(devname, O_RDWR);
+    free(devname);
+    if (fd < 0)
+        fail("open");
+
+    while (1) {
+        // Wait for an up before retrieving arm torque.
+        // driver.
+        /* sem_wait(&semaphore["retrieve_arm_torque"]); */
+
+        // Poll at the same rate as the imu.
+        usleep(imu_poll_interval);
+
+        /*
+         * Here we should retrieve from ROS.
+         * But for now, retrieve a random value.
+         */
+        torque = retrieve_torque();
         has_payload ^= 1;
 
-        // Write retrieved force to rt_retrieve_force.
-        snprintf(buf, BUFSIZE, "%f:%d", force, has_payload);
+        // Write retrieved torque to rt_retrieve_torque.
+        snprintf(buf, BUFSIZE, "%f:%d", torque, has_payload);
         ret = write(fd, buf, BUFSIZE);
         if (ret <= 0)
             fail("write");

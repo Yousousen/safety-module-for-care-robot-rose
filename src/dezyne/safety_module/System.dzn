@@ -4,6 +4,7 @@ import KineticEnergyCheck.dzn;
 import RotationalEnergyCheck.dzn;
 import ArmPositionCheck.dzn;
 import ArmForceCheck.dzn;
+import ArmTorqueCheck.dzn;
 import BaseCaseCheck.dzn;
 import Sensors.dzn;
 
@@ -12,8 +13,9 @@ component System {
 	requires ILEDControl iLEDControl;
 	requires IAccelerationSensor iAccelerationSensor;
 	requires IAngularVelocitySensor iAngularVelocitySensor;
-	requires IArmPositionSensor iArmPositionSensor;
 	requires IArmForceSensor iArmForceSensor;
+	requires IArmTorqueSensor iArmTorqueSensor;
+	requires IArmPositionSensor iArmPositionSensor;
 	
 	system {
 		/*** Components ***/
@@ -22,6 +24,7 @@ component System {
 		RotationalEnergyCheck rotationalEnergyCheck;
 		ArmPositionCheck armPositionCheck;
 		ArmForceCheck armForceCheck;
+		ArmTorqueCheck armTorqueCheck;
 		BaseCaseCheck baseCaseCheck;
 
 		iController <=> controller.iController;
@@ -31,15 +34,16 @@ component System {
 		iAccelerationSensor <=> kineticEnergyCheck.iAccelerationSensor;
 		iAngularVelocitySensor <=> rotationalEnergyCheck.iAngularVelocitySensor;
 		iArmForceSensor <=> armForceCheck.iArmForceSensor;
+		iArmTorqueSensor <=> armTorqueCheck.iArmTorqueSensor;
 		iArmPositionSensor <=> armPositionCheck.iArmPositionSensor;
 
  		/*** Check all four ***/
 		controller.iNext <=> kineticEnergyCheck.iKineticEnergyCheck;
         kineticEnergyCheck.iNext <=> rotationalEnergyCheck.iRotationalEnergyCheck;
-		rotationalEnergyCheck.iNext <=> armPositionCheck.iArmPositionCheck;
-		armPositionCheck.iNext <=> armForceCheck.iArmForceCheck;
-		armForceCheck.iNext <=> baseCaseCheck.iRoot;
-
+		rotationalEnergyCheck.iNext <=> armForceCheck.iArmForceCheck;
+		armForceCheck.iNext <=> armTorqueCheck.iArmTorqueCheck;
+		armTorqueCheck.iNext <=> armPositionCheck.iArmPositionCheck;
+		armPositionCheck.iNext <=> baseCaseCheck.iRoot;
 
 		/*** Acceleration check only ***/
 //		controller.iNext <=> kineticEnergyCheck.iKineticEnergy;

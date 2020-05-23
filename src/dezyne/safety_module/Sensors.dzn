@@ -22,6 +22,14 @@ interface IArmForceSensor {
 	}
 }
 
+interface IArmTorqueSensor {
+	in void retrieve_arm_torque();
+	
+	behaviour {
+		on retrieve_arm_torque: {}
+	}
+}
+
 interface IArmPositionSensor {
 	in void retrieve_arm_pos();
 	

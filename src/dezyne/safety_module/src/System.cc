@@ -19,7 +19,7 @@
 //SYSTEM
 
 System::System(const dzn::locator& dzn_locator)
-: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularVelocitySensor.meta,& iArmPositionSensor.meta,& iArmForceSensor.meta},{& controller.dzn_meta,& kineticEnergyCheck.dzn_meta,& rotationalEnergyCheck.dzn_meta,& armPositionCheck.dzn_meta,& armForceCheck.dzn_meta,& baseCaseCheck.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularVelocitySensor.check_bindings();},[this]{iArmPositionSensor.check_bindings();},[this]{iArmForceSensor.check_bindings();}}}
+: dzn_meta{"","System",0,0,{& iLEDControl.meta,& iAccelerationSensor.meta,& iAngularVelocitySensor.meta,& iArmForceSensor.meta,& iArmTorqueSensor.meta,& iArmPositionSensor.meta},{& controller.dzn_meta,& kineticEnergyCheck.dzn_meta,& rotationalEnergyCheck.dzn_meta,& armPositionCheck.dzn_meta,& armForceCheck.dzn_meta,& armTorqueCheck.dzn_meta,& baseCaseCheck.dzn_meta},{[this]{iController.check_bindings();},[this]{iLEDControl.check_bindings();},[this]{iAccelerationSensor.check_bindings();},[this]{iAngularVelocitySensor.check_bindings();},[this]{iArmForceSensor.check_bindings();},[this]{iArmTorqueSensor.check_bindings();},[this]{iArmPositionSensor.check_bindings();}}}
 , dzn_rt(dzn_locator.get<dzn::runtime>())
 , dzn_locator(dzn_locator)
 
@@ -29,10 +29,11 @@ System::System(const dzn::locator& dzn_locator)
 , rotationalEnergyCheck(dzn_locator)
 , armPositionCheck(dzn_locator)
 , armForceCheck(dzn_locator)
+, armTorqueCheck(dzn_locator)
 , baseCaseCheck(dzn_locator)
 
 , iController(controller.iController)
-, iLEDControl(controller.iLEDControl), iAccelerationSensor(kineticEnergyCheck.iAccelerationSensor), iAngularVelocitySensor(rotationalEnergyCheck.iAngularVelocitySensor), iArmPositionSensor(armPositionCheck.iArmPositionSensor), iArmForceSensor(armForceCheck.iArmForceSensor)
+, iLEDControl(controller.iLEDControl), iAccelerationSensor(kineticEnergyCheck.iAccelerationSensor), iAngularVelocitySensor(rotationalEnergyCheck.iAngularVelocitySensor), iArmForceSensor(armForceCheck.iArmForceSensor), iArmTorqueSensor(armTorqueCheck.iArmTorqueSensor), iArmPositionSensor(armPositionCheck.iArmPositionSensor)
 {
 
 
@@ -46,15 +47,18 @@ System::System(const dzn::locator& dzn_locator)
   armPositionCheck.dzn_meta.name = "armPositionCheck";
   armForceCheck.dzn_meta.parent = &dzn_meta;
   armForceCheck.dzn_meta.name = "armForceCheck";
+  armTorqueCheck.dzn_meta.parent = &dzn_meta;
+  armTorqueCheck.dzn_meta.name = "armTorqueCheck";
   baseCaseCheck.dzn_meta.parent = &dzn_meta;
   baseCaseCheck.dzn_meta.name = "baseCaseCheck";
 
 
   connect(kineticEnergyCheck.iKineticEnergyCheck, controller.iNext);
   connect(rotationalEnergyCheck.iRotationalEnergyCheck, kineticEnergyCheck.iNext);
-  connect(armPositionCheck.iArmPositionCheck, rotationalEnergyCheck.iNext);
-  connect(armForceCheck.iArmForceCheck, armPositionCheck.iNext);
-  connect(baseCaseCheck.iRoot, armForceCheck.iNext);
+  connect(armForceCheck.iArmForceCheck, rotationalEnergyCheck.iNext);
+  connect(armTorqueCheck.iArmTorqueCheck, armForceCheck.iNext);
+  connect(armPositionCheck.iArmPositionCheck, armTorqueCheck.iNext);
+  connect(baseCaseCheck.iRoot, armPositionCheck.iNext);
 
   dzn::rank(iController.meta.provides.meta, 0);
 

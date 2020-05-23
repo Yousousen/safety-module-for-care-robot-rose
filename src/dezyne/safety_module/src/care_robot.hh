@@ -73,7 +73,8 @@ class Arm {
         Arm() : current_force(0.0), change_force(0.0),
         max_force(0.0), min_force(0.0), current_position(0),
         change_position(0.0), max_position(0.0), min_position(0.0),
-        has_payload(false) {};
+        has_payload(false), current_torque(0.0), change_torque(0.0),
+        max_torque(0.0), min_torque(0.0) {};
 
         Arm(double curs, double chgs, double maxs, double mins, double
                 curp, double chgp, double maxp, double minp, double pay) :
@@ -87,6 +88,10 @@ class Arm {
         double change_force;
         double max_force;
         double min_force;
+        double current_torque;
+        double change_torque;
+        double max_torque;
+        double min_torque;
         int current_position;
         int change_position;
         int max_position;
@@ -97,6 +102,7 @@ class Arm {
 
         // Methods
         void retrieve_force();
+        void retrieve_torque();
         void retrieve_position();
 
         friend std::ostream& operator<< (std::ostream&, const Arm&);

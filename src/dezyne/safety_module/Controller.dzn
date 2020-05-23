@@ -7,20 +7,34 @@ interface IController {
 	in void destruct();
 	in void reset();
 	in UnsafeTriggered do_checks();
+	out void initialise_imu();
+	out void initialise_mutexes();
+	out void initialise_semaphores();
+	out void destruct_mutexes();
+	out void destruct_semaphores();
 
 	behaviour {
 		enum State {Idle, Operating};
 		State state = State.Idle;
 
 		[state.Idle] {
-			on initialise: { state = State.Operating; }
+			on initialise: {
+				initialise_imu;
+				initialise_mutexes;
+				initialise_semaphores;
+				state = State.Operating;
+			}
 			on destruct: illegal;
 			on reset: illegal;
 			on do_checks: illegal;
 		}
 		[state.Operating] {
 			on initialise: illegal;
-			on destruct: { state = State.Idle; }
+			on destruct: {
+				destruct_mutexes;
+				destruct_semaphores;
+				state = State.Idle;
+			}
 
 			on reset: {}
 
@@ -47,6 +61,9 @@ component Controller {
 		[systemState.Idle] {
 			on iController.initialise(): {
 				iLEDControl.initialise_framebuffer();
+				iController.initialise_imu();
+				iController.initialise_mutexes();
+				iController.initialise_semaphores();
 				systemState = State.Operating;
 			}
 		}
@@ -54,6 +71,8 @@ component Controller {
 		[systemState.Operating] {
 			on iController.destruct(): {
 				iLEDControl.destruct_framebuffer();
+				iController.destruct_mutexes();
+				iController.destruct_semaphores();
 				systemState = State.Idle;
 			}
 

@@ -51,55 +51,51 @@ struct UnsafeTriggered
 
 #endif // ENUM_UnsafeTriggered
 
-/***********************************  SYSTEM  ***********************************/
-#ifndef SYSTEM_HH
-#define SYSTEM_HH
+/********************************** COMPONENT *********************************/
+#ifndef ARMTORQUECHECK_HH
+#define ARMTORQUECHECK_HH
 
-
-#include <dzn/locator.hh>
-
-#include "Controller.hh"
-#include "KineticEnergyCheck.hh"
-#include "RotationalEnergyCheck.hh"
-#include "ArmPositionCheck.hh"
-#include "ArmForceCheck.hh"
-#include "ArmTorqueCheck.hh"
-#include "BaseCaseCheck.hh"
+#include "Sensors.hh"
+#include "ISafetyCheck.hh"
+#include "ISafetyCheck.hh"
+#include "Resolver.hh"
 
 
 
-struct System
+struct ArmTorqueCheck
 {
   dzn::meta dzn_meta;
   dzn::runtime& dzn_rt;
   dzn::locator const& dzn_locator;
 
 
-  ::Controller controller;
-  ::KineticEnergyCheck kineticEnergyCheck;
-  ::RotationalEnergyCheck rotationalEnergyCheck;
-  ::ArmPositionCheck armPositionCheck;
-  ::ArmForceCheck armForceCheck;
-  ::ArmTorqueCheck armTorqueCheck;
-  ::BaseCaseCheck baseCaseCheck;
+  ::Behavior::type reply_Behavior;
 
-  ::IController& iController;
+  std::function<void ()> out_iArmTorqueCheck;
 
-  ::ILEDControl& iLEDControl;
-  ::IAccelerationSensor& iAccelerationSensor;
-  ::IAngularVelocitySensor& iAngularVelocitySensor;
-  ::IArmForceSensor& iArmForceSensor;
-  ::IArmTorqueSensor& iArmTorqueSensor;
-  ::IArmPositionSensor& iArmPositionSensor;
+  ::ISafetyCheck iArmTorqueCheck;
 
-  System(const dzn::locator&);
+  ::IArmTorqueSensor iArmTorqueSensor;
+  ::ISafetyCheck iNext;
+  ::IResolver iResolver;
+
+
+  ArmTorqueCheck(const dzn::locator&);
   void check_bindings() const;
-  void dump_tree(std::ostream& os=std::clog) const;
+  void dump_tree(std::ostream& os) const;
+  friend std::ostream& operator << (std::ostream& os, const ArmTorqueCheck& m)  {
+    (void)m;
+    return os << "[" << "]" ;
+  }
+  private:
+  ::Behavior::type iArmTorqueCheck_do_check();
+
+  ::Behavior::type and_safety_states (::Behavior::type current,::Behavior::type next);
 };
 
-#endif // SYSTEM_HH
+#endif // ARMTORQUECHECK_HH
 
-/***********************************  SYSTEM  ***********************************/
+/********************************** COMPONENT *********************************/
 
 
 //version: 2.9.1

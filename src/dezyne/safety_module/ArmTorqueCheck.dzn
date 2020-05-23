@@ -1,0 +1,31 @@
+import DataTypes.dzn;
+import ISafetyCheck.dzn;
+import Resolver.dzn;
+import Sensors.dzn;
+
+component ArmTorqueCheck {
+	requires IArmTorqueSensor iArmTorqueSensor;
+	provides ISafetyCheck iArmTorqueCheck;
+	requires ISafetyCheck iNext;
+	requires injected IResolver iResolver;
+
+	behaviour {
+		Behavior and_safety_states(Behavior current, Behavior next) {
+			if(current == Behavior.Unsafe || next == Behavior.Unsafe) {
+				return Behavior.Unsafe;
+			}
+			return Behavior.Safe;
+		}
+
+		on iArmTorqueCheck.do_check(): {
+			Behavior currSafetyState = Behavior.Safe;
+			// TODO: Let the data go through the retriever here.
+			iArmTorqueSensor.retrieve_arm_torque();
+			currSafetyState = iResolver.resolve_arm_torque();
+			
+			Behavior nextSafetyState = iNext.do_check();
+			Behavior res = and_safety_states(currSafetyState, nextSafetyState); 
+			reply(res);
+		}
+	}
+}
