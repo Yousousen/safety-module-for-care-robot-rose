@@ -1,0 +1,26 @@
+import DataTypes.dzn;
+
+interface IResolver {
+	in Behavior resolve_ke_from_acc();
+	in Behavior resolve_re_from_ang_vel();
+	in Behavior resolve_arm_force();
+	in Behavior resolve_arm_torque();
+	in Behavior resolve_arm_pos();
+
+	behaviour {
+		on resolve_ke_from_acc: reply(Behavior.Safe); 
+		on resolve_ke_from_acc: reply(Behavior.Unsafe); 
+
+		on resolve_re_from_ang_vel: reply(Behavior.Safe); 
+		on resolve_re_from_ang_vel: reply(Behavior.Unsafe); 
+
+		on resolve_arm_force: reply(Behavior.Safe); 
+		on resolve_arm_force: reply(Behavior.Unsafe); 
+
+		on resolve_arm_torque: reply(Behavior.Safe); 
+		on resolve_arm_torque: reply(Behavior.Unsafe); 
+
+		on resolve_arm_pos: reply(Behavior.Safe); 
+		on resolve_arm_pos: reply(Behavior.Unsafe); 
+	}
+}

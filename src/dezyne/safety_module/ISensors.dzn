@@ -1,0 +1,39 @@
+interface IAccelerationSensor {
+	in void retrieve_ke_from_acc();
+	
+	behaviour {
+		on retrieve_ke_from_acc: {}
+	}
+}
+
+interface IAngularVelocitySensor {
+	in void retrieve_re_from_ang_vel();
+	
+	behaviour {
+		on retrieve_re_from_ang_vel: {}
+	}
+}
+
+interface IArmForceSensor {
+	in void retrieve_arm_force();
+	
+	behaviour {
+		on retrieve_arm_force: {}
+	}
+}
+
+interface IArmTorqueSensor {
+	in void retrieve_arm_torque();
+	
+	behaviour {
+		on retrieve_arm_torque: {}
+	}
+}
+
+interface IArmPositionSensor {
+	in void retrieve_arm_pos();
+	
+	behaviour {
+		on retrieve_arm_pos: {}
+	}
+}
