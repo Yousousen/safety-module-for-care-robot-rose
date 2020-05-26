@@ -1,12 +1,12 @@
 import DataTypes.dzn;
 import ISafetyCheck.dzn;
-import Resolver.dzn;
-import Sensors.dzn;
+import IResolver.dzn;
+import ISensors.dzn;
 
 component ArmPositionCheck {
-	requires IArmPositionSensor iArmPositionSensor;
 	provides ISafetyCheck iArmPositionCheck;
 	requires ISafetyCheck iNext;
+	requires IArmPositionSensor iArmPositionSensor;
 	requires injected IResolver iResolver;
 
 	behaviour {

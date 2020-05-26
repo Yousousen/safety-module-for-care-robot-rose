@@ -1,7 +1,7 @@
 import DataTypes.dzn;
 import ISafetyCheck.dzn;
-import Resolver.dzn;
-import Sensors.dzn;
+import IResolver.dzn;
+import ISensors.dzn;
 
 component RotationalEnergyCheck {
 	requires IAngularVelocitySensor iAngularVelocitySensor;

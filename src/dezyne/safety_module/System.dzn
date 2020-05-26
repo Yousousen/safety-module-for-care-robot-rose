@@ -1,12 +1,12 @@
+import ILEDControl.dzn;
+import ISensors.dzn;
 import Controller.dzn;
-import LEDControl.dzn;
 import KineticEnergyCheck.dzn;
 import RotationalEnergyCheck.dzn;
 import ArmPositionCheck.dzn;
 import ArmForceCheck.dzn;
 import ArmTorqueCheck.dzn;
 import BaseCaseCheck.dzn;
-import Sensors.dzn;
 
 component System {
 	provides IController iController;

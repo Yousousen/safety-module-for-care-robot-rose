@@ -1,12 +1,12 @@
 import DataTypes.dzn;
 import ISafetyCheck.dzn;
-import Resolver.dzn;
-import Sensors.dzn;
+import IResolver.dzn;
+import ISensors.dzn;
 
 component ArmTorqueCheck {
-	requires IArmTorqueSensor iArmTorqueSensor;
 	provides ISafetyCheck iArmTorqueCheck;
 	requires ISafetyCheck iNext;
+	requires IArmTorqueSensor iArmTorqueSensor;
 	requires injected IResolver iResolver;
 
 	behaviour {

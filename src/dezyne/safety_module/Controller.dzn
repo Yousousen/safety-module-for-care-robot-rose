@@ -1,6 +1,6 @@
 import ISafetyCheck.dzn;
 import DataTypes.dzn;
-import LEDControl.dzn;
+import ILEDControl.dzn;
 
 interface IController {
 	in void initialise();
@@ -80,7 +80,6 @@ component Controller {
 				Behavior safetyState = iNext.do_check();
 				
 				if (safetyState == Behavior.Unsafe) {
-					// TODO: Remove parameter or rename event.
 					iLEDControl.light_led_red(red);
 					unsafe_acknowledged = false;
 				} else if(unsafe_acknowledged) {
