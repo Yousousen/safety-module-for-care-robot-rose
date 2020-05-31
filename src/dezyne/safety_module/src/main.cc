@@ -89,15 +89,15 @@ void sample_acceleration(double* f, const int nsamples);
 void sample_angular_displacement(double* f, const int nsamples);
 
 /*** retrievers and resolvers ***/
-void retrieve_ke_from_acc();
+void dzn_retrieve_ke_from_acc();
 Behavior::type resolve_ke_from_acc();
-void retrieve_re_from_ang_vel();
+void dzn_retrieve_re_from_ang_vel();
 Behavior::type resolve_re_from_ang_vel();
-void retrieve_arm_force();
-void retrieve_arm_torque();
+void dzn_retrieve_arm_force();
+void dzn_retrieve_arm_torque();
 Behavior::type resolve_arm_force();
 Behavior::type resolve_arm_torque();
-void retrieve_arm_pos();
+void dzn_retrieve_arm_pos();
 Behavior::type resolve_arm_pos();
 
 void initialise();
@@ -355,20 +355,11 @@ ErrorCode_t roll() {
     IResolver iResolver({});
 
     // Bind resolvers
-    iResolver.in.resolve_ke_from_acc = []() -> Behavior::type {
-        int r;
-        Behavior::type type;
-        double ke;
-
-        r = safe_call([&ke]() { ke = kinetic_energy; }, &mutex["ke"]);
-        if (r != OK) exit(EXIT_FAILURE);
-
-        if (ke > MAX_KE)
-            type = Behavior::type::Unsafe;
-        else
-            type = Behavior::type::Safe;
-        return type;
-    };
+    /* iResolver.in.resolve_ke_from_acc = []() -> Behavior::type { return Behavior::type::Safe;}; */
+    /* iResolver.in.resolve_re_from_ang_vel = []() -> Behavior::type { return Behavior::type::Safe;}; */
+    iResolver.in.resolve_arm_force = []() -> Behavior::type { return Behavior::type::Safe;};
+    iResolver.in.resolve_arm_pos = []() -> Behavior::type { return Behavior::type::Safe;};
+    iResolver.in.resolve_arm_torque = []() -> Behavior::type { return Behavior::type::Safe;};
 
     iResolver.in.resolve_re_from_ang_vel = []() -> Behavior::type {
         int r;
@@ -385,17 +376,21 @@ ErrorCode_t roll() {
         return type;
     };
 
-    iResolver.in.resolve_arm_force = []() -> Behavior::type {
-        return Behavior::type::Safe;
+    iResolver.in.resolve_ke_from_acc = []() -> Behavior::type {
+        int r;
+        Behavior::type type;
+        double ke;
+
+        r = safe_call([&ke]() { ke = kinetic_energy; }, &mutex["ke"]);
+        if (r != OK) exit(EXIT_FAILURE);
+
+        if (ke > MAX_KE)
+            type = Behavior::type::Unsafe;
+        else
+            type = Behavior::type::Safe;
+        return type;
     };
 
-    iResolver.in.resolve_arm_torque = []() -> Behavior::type {
-        return Behavior::type::Safe;
-    };
-
-    iResolver.in.resolve_arm_pos = []() -> Behavior::type {
-        return Behavior::type::Safe;
-    };
 
     /* iResolver.in.resolve_arm_force = []() -> Behavior::type { */
     /*     int r; */
@@ -415,6 +410,7 @@ ErrorCode_t roll() {
     /*         type = Behavior::type::Safe; */
     /*     return type; */
     /* }; */
+
 
     /* iResolver.in.resolve_arm_torque = []() -> Behavior::type { */
     /*     int r; */
@@ -477,12 +473,12 @@ ErrorCode_t roll() {
     s.iController.out.initialise_semaphores = initialise_semaphores;
     s.iController.out.destruct_mutexes = destruct_mutexes;
     s.iController.out.destruct_semaphores = destruct_semaphores;
-    s.iAccelerationSensor.in.retrieve_ke_from_acc = retrieve_ke_from_acc;
+    s.iAccelerationSensor.in.retrieve_ke_from_acc = dzn_retrieve_ke_from_acc;
     s.iAngularVelocitySensor.in.retrieve_re_from_ang_vel =
-        retrieve_re_from_ang_vel;
-    s.iArmPositionSensor.in.retrieve_arm_pos = retrieve_arm_pos;
-    s.iArmForceSensor.in.retrieve_arm_force = retrieve_arm_force;
-    s.iArmTorqueSensor.in.retrieve_arm_torque = retrieve_arm_torque;
+        dzn_retrieve_re_from_ang_vel;
+    s.iArmPositionSensor.in.retrieve_arm_pos = dzn_retrieve_arm_pos;
+    s.iArmForceSensor.in.retrieve_arm_force = dzn_retrieve_arm_force;
+    s.iArmTorqueSensor.in.retrieve_arm_torque = dzn_retrieve_arm_torque;
 
     // Check bindings
     s.check_bindings();
@@ -626,7 +622,7 @@ ErrorCode_t roll() {
     /* th_info.period = 1E6/4;      // 250ms */
     th_info.period = imu_poll_interval;      // poll interval based period.
     th_info.s = &s;
-    // Start periodic real-time threads.
+    // Start periodic real-time checks.
     errno = pthread_create(&th_rt_checks, &rtattr, &rt_periodic_thread_body,
             &th_info);
     if (errno)
@@ -965,17 +961,17 @@ void sample_angular_displacement(double* f, const int nsamples) {
 }
 
 
-void retrieve_ke_from_acc() {
+void dzn_retrieve_ke_from_acc() {
     // Currently rt_sample_acceleration sets kinetic energy, so we need not do
     // anything here.
 }
 
-void retrieve_re_from_ang_vel() {
+void dzn_retrieve_re_from_ang_vel() {
     // Currently rt_sample_angular_velocity sets rotational energy, so we
     // need not do anything here.
 }
 
-void retrieve_arm_force() {
+void dzn_retrieve_arm_force() {
     int r = safe_call( []() {
             arm_force = rose->arm->current_force;
             /* printf("arm force = %g\n", arm_force); */
@@ -984,7 +980,7 @@ void retrieve_arm_force() {
     if (r != OK) exit(EXIT_FAILURE);
 }
 
-void retrieve_arm_torque() {
+void dzn_retrieve_arm_torque() {
     int r = safe_call( []() {
             arm_torque = rose->arm->current_torque;
             /* printf("arm torque = %g\n", arm_torque); */
@@ -993,7 +989,7 @@ void retrieve_arm_torque() {
     if (r != OK) exit(EXIT_FAILURE);
 }
 
-void retrieve_arm_pos() {
+void dzn_retrieve_arm_pos() {
     int r = safe_call( []() {
             arm_position = rose->arm->current_position;
             /* printf("arm position = %d\n", arm_position); */
@@ -1174,7 +1170,7 @@ static void* rt_retrieve_acceleration(void* arg) {
         fail("bind");
 
     /*
-     * Retrieve a datagrams from the NRT endpoint via the proxy.
+     * Retrieve datagrams from the NRT endpoint via the proxy.
      */
     while (1) {
         /* Read packets echoed by the non-real-time thread */
@@ -1799,7 +1795,6 @@ static void *rt_periodic_thread_body(void *arg) {
     // Copy over dezyne system pointer
     threadargs.s = the_thread->s;
 
-    /* ptask = start_periodic_timer(2000000, the_thread->period); */
     ptask = start_periodic_timer(0, the_thread->period);
     if (ptask == NULL) {
         printf("Start Periodic Timer");

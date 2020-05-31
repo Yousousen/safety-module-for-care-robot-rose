@@ -47,7 +47,7 @@ interface IController {
 component Controller {
 	provides IController iController;
 	requires ILEDControl iLEDControl;
-	requires ISafetyCheck iNext;
+	requires ISafetyCheck iHead;
 
 	behaviour {
 		enum State {Idle, Operating};
