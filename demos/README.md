@@ -20,7 +20,7 @@ Acceleration is checked in all Cartesian directions. Here in the Z-direction:
 
 ## Rotational energy check
 
-Here we show the rotational energy check only.Now the kinetic energy check and the other checks return `safe` by default.
+Here we show the rotational energy check only. Now the kinetic energy check and the other checks return `safe` by default.
 
 ![ang vel demo](https://github.com/Yousousen/safety-module-for-care-robot-rose/blob/master/demos/ang_vel_only/ang_vel_good_demo.gif)
 ![ang vel demo2](https://github.com/Yousousen/safety-module-for-care-robot-rose/blob/master/demos/ang_vel_only/ang_vel_good_demo2.gif)
