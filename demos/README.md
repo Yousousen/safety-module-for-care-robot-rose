@@ -25,7 +25,7 @@ Here we show the rotational energy check only.Now the kinetic energy check and t
 ![ang vel demo](https://github.com/Yousousen/safety-module-for-care-robot-rose/blob/master/demos/ang_vel_only/ang_vel_good_demo.gif)
 ![ang vel demo2](https://github.com/Yousousen/safety-module-for-care-robot-rose/blob/master/demos/ang_vel_only/ang_vel_good_demo2.gif)
 
-High linear acceleration does not make the matrix red now:
+Because we turned off the KE check high linear acceleration does not make the matrix red now:
 
 ![linear acceleration does nothing](https://github.com/Yousousen/safety-module-for-care-robot-rose/blob/master/demos/ang_vel_only/linear_velocity_does_nothing.gif)
 
