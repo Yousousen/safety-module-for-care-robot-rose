@@ -250,6 +250,17 @@ void write_to_fd(int fd, double what) {
         fail("write");
 }
 
+// Avoid dezyne from writing output and making mode switches.
+class NullStream : public std::ostream {
+public:
+  NullStream() : std::ostream(nullptr) {}
+  NullStream(const NullStream &) : std::ostream(nullptr) {}
+};
+
+template <class T>
+const NullStream &operator<<(NullStream &&os, const T &value) { 
+  return os;
+}
 
 /*** Global variables ***/
 struct Position* position = nullptr;
@@ -356,25 +367,10 @@ ErrorCode_t roll() {
 
     // Bind resolvers
     /* iResolver.in.resolve_ke_from_acc = []() -> Behavior::type { return Behavior::type::Safe;}; */
-    /* iResolver.in.resolve_re_from_ang_vel = []() -> Behavior::type { return Behavior::type::Safe;}; */
+    iResolver.in.resolve_re_from_ang_vel = []() -> Behavior::type { return Behavior::type::Safe;};
     iResolver.in.resolve_arm_force = []() -> Behavior::type { return Behavior::type::Safe;};
     iResolver.in.resolve_arm_pos = []() -> Behavior::type { return Behavior::type::Safe;};
     iResolver.in.resolve_arm_torque = []() -> Behavior::type { return Behavior::type::Safe;};
-
-    iResolver.in.resolve_re_from_ang_vel = []() -> Behavior::type {
-        int r;
-        Behavior::type type;
-        double re;
-
-        r = safe_call([&re]() { re = rotational_energy; }, &mutex["re"]);
-        if (r != OK) exit(EXIT_FAILURE);
-
-        if (re > MAX_RE)
-            type =  Behavior::type::Unsafe;
-        else
-            type =  Behavior::type::Safe;
-        return type;
-    };
 
     iResolver.in.resolve_ke_from_acc = []() -> Behavior::type {
         int r;
@@ -391,6 +387,21 @@ ErrorCode_t roll() {
         return type;
     };
 
+    /* iResolver.in.resolve_re_from_ang_vel = []() -> Behavior::type { */
+    /*     int r; */
+    /*     Behavior::type type; */
+    /*     double re; */
+
+    /*     r = safe_call([&re]() { re = rotational_energy; }, &mutex["re"]); */
+    /*     if (r != OK) exit(EXIT_FAILURE); */
+
+    /*     if (re > MAX_RE) */
+    /*         type =  Behavior::type::Unsafe; */
+    /*     else */
+    /*         type =  Behavior::type::Safe; */
+    /*     return type; */
+    /* }; */
+
 
     /* iResolver.in.resolve_arm_force = []() -> Behavior::type { */
     /*     int r; */
@@ -402,9 +413,7 @@ ErrorCode_t roll() {
     /*             arm_has_payload(); }, &mutex["arm_force"]); */
     /*     if (r != OK) exit(EXIT_FAILURE); */
 
-    /*     if ( has_payload && str > MAX_FORCE_PAYLOAD) */
-    /*         type = Behavior::type::Unsafe; */
-    /*     else if (str > MAX_FORCE) */
+    /*     if (str > MAX_FORCE) */
     /*         type = Behavior::type::Unsafe; */
     /*     else */
     /*         type = Behavior::type::Safe; */
@@ -424,7 +433,7 @@ ErrorCode_t roll() {
 
     /*     if ( has_payload && str > MAX_TORQUE_PAYLOAD) */
     /*         type = Behavior::type::Unsafe; */
-    /*     else if (str > MAX_torque) */
+    /*     else if (str > MAX_TORQUE) */
     /*         type = Behavior::type::Unsafe; */
     /*     else */
     /*         type = Behavior::type::Safe; */
@@ -452,8 +461,10 @@ ErrorCode_t roll() {
     dzn::runtime runtime;
     locator.set(runtime);
     locator.set(iResolver);
-    auto output = std::ofstream("dzn_output.log");
-    locator.set(static_cast<std::ostream&>(output));
+    // output to dzn_output.log instead
+    /* auto output = std::ofstream("dzn_output.log"); */
+    auto nullstream = NullStream();
+    locator.set(static_cast<std::ostream&>(nullstream));
 
     System s(locator);
     s.dzn_meta.name = "System";
@@ -489,7 +500,7 @@ ErrorCode_t roll() {
     s.iController.in.initialise();
 
     /*** Threads related ***/
-    struct sched_param rtparam = { .sched_priority = 42 };
+    struct sched_param rtparam = { .sched_priority = 99 };
     pthread_attr_t rtattr, nrtattr;
     sigset_t set;
     int sig;
@@ -537,78 +548,91 @@ ErrorCode_t roll() {
     errno = pthread_create(&th_rt_light_led, &rtattr, &rt_light_led, NULL);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_light_led, "rt_light_led");
 
     // Start thread rt_retrieve_acceleration
     errno = pthread_create(&th_rt_ret_acc, &rtattr, &rt_retrieve_acceleration,
             &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_ret_acc, "rt_retrieve_acceleration");
 
     // Start thread rt_retrieve_angular_displacement
     errno = pthread_create(&th_rt_ret_ang_disp, &rtattr,
             &rt_retrieve_angular_displacement, &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_ret_ang_disp, "rt_retrieve_angular_displacement");
 
     // Start thread rt_retrieve_arm_force
     errno = pthread_create(&th_rt_ret_arm_force, &rtattr,
             &rt_retrieve_arm_force, &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_ret_arm_force, "rt_retrieve_arm_force");
 
     // Start thread rt_retrieve_arm_torque
     errno = pthread_create(&th_rt_ret_arm_torque, &rtattr,
             &rt_retrieve_arm_torque, &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_ret_arm_torque, "rt_retrieve_arm_torque");
 
     // Start thread rt_retrieve_arm_position
     errno = pthread_create(&th_rt_ret_arm_pos, &rtattr,
             &rt_retrieve_arm_position, &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_ret_arm_pos, "rt_retrieve_arm_position");
 
     // Start thread rt_sample_acceleration
     errno = pthread_create(&th_rt_sample_acc, &rtattr, &rt_sample_acceleration,
             &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_sample_acc, "rt_sample_acceleration");
 
     // Start thread rt_sample_angular_velocity
     errno = pthread_create(&th_rt_sample_ang_disp, &rtattr,
             &rt_sample_angular_velocity, &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_sample_ang_disp, "rt_sample_angular_velocity");
 
     // Start thread nrt_light_led
     errno = pthread_create(&th_nrt_light_led, &nrtattr, &nrt_light_led, (void*)
             &threadargs);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_nrt_light_led, "nrt_light_led");
 
     // Start thread nrt_retrieve_imu
     errno = pthread_create(&th_nrt_ret_imu, &nrtattr,
             &nrt_retrieve_imu, NULL);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_nrt_ret_imu, "nrt_retrieve_imu");
 
     // Start thread nrt_retrieve_arm_force
     errno = pthread_create(&th_nrt_ret_arm_force, &nrtattr,
             &nrt_retrieve_arm_force, NULL);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_nrt_ret_arm_force, "nrt_retrieve_arm_force");
 
     // Start thread nrt_retrieve_arm_torque
     errno = pthread_create(&th_nrt_ret_arm_torque, &nrtattr,
             &nrt_retrieve_arm_torque, NULL);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_nrt_ret_arm_torque, "nrt_retrieve_arm_torque");
 
     // Start thread nrt_retrieve_arm_position
     errno = pthread_create(&th_nrt_ret_arm_pos, &nrtattr,
             &nrt_retrieve_arm_position, NULL);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_nrt_ret_arm_pos, "nrt_retrieve_arm_position");
 
 
 
@@ -627,6 +651,7 @@ ErrorCode_t roll() {
             &th_info);
     if (errno)
         fail("pthread_create");
+    pthread_setname_np(th_rt_checks, "rt_checks");
 
     // The safety module runs so long we are in this loop. The LED light can be
     // reset by inputting 'r'.  We quit the loop correctly by inputting 'q'.
