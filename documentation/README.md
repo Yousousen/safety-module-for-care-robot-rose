@@ -273,7 +273,7 @@ To be able to run the safety module, we need to have the dezyne command line
 installed. Installation instructions can be found on Verum's website of Dezyne,
 at the time of writing
 [here](https://dezyne.org/dezyne/manual/dezyne.html#Installation) (but the
-website is subject to change). In our installation we used Dezyne version 2.9.0.
+website is subject to change, either way the website can be found with a search on 'verum dezyne'). In our installation we used Dezyne version 2.9.0.
 
 ## Building and running the safety module
 
