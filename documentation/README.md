@@ -278,8 +278,7 @@ website is subject to change). In our installation we used Dezyne version 2.9.0.
 ## Building and running the safety module
 
 The makefile in `safety-module-for-care-robot-rose/src/dezyne/safety_module/`
-can be used to build the safety module. This can be done with a simple `make` in
-the directory. If all goes well, it generates an executeable called `sm`. The
+can be used to build the safety module. This can be done by copying all files in that directory to the raspberry pi and executing `make`. If all goes well, it generates an executeable called `sm`. The
 safety module can then be run with `sudo ./sm`. Sudo is required by Xenomai.
 
 Press `q` followed by enter to stop running.
