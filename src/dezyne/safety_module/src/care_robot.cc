@@ -1,49 +1,19 @@
 #include "care_robot.hh"
 
 CareRobotRose::CareRobotRose() {
-    body = new Body(11.0, 12.0, 13.0, 14.0);
-    neck = new Neck(11.0, 12.0, 13.0, 14.0);
-    arm = new Arm(11.0, 12.0, 13.0, 14.0, 11.0, 12.0, 13.0, 14.0, true);
+    body = new Body(0.0, 0.0, 0.0, 0.0);
+    neck = new Neck(0.0, 0.0, 0.0, 0.0);
+    arm = new Arm(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, true);
     camera = new Camera(true);
 
+    position = new Position(0.0, 0.0, 0.0, 0.0);
+    velocity = new Velocity(0.0, 0.0, 0.0, 0.0);
+    acceleration = new Acceleration(0.0, 0.0, 0.0, 0.0);
+    angular_acceleration = new AngularAcceleration(0.0, 0.0, 0.0, 0.0);
+    angular_velocity = new AngularVelocity(0.0, 0.0, 0.0, 0.0);
+    angular_acceleration = new AngularAcceleration(0.0, 0.0, 0.0, 0.0);
+
     movement_mode = MovementMode::STATIONARY;
-
-    if (CSV_HAS_POSITION) {
-        // Load from CSV.
-    } else {
-        position = new Position(11.0, 12.0, 13.0, 14.0);
-    }
-
-    if (CSV_HAS_VELOCITY) {
-        // Load from CSV.
-    } else {
-        velocity = new Velocity(11.0, 12.0, 13.0, 14.0);
-    }
-
-    if (CSV_HAS_ACCELERATION) {
-        // Load from CSV.
-    } else {
-        acceleration = new Acceleration(11.0, 12.0, 13.0, 14.0);
-    }
-
-    if (CSV_HAS_ANGULAR_ACCELERATION) {
-        // Load from CSV.
-    } else {
-        angular_acceleration = new AngularAcceleration(11.0, 12.0, 13.0, 14.0);
-    }
-
-    if (CSV_HAS_ANGULAR_VELOCITY) {
-        // Load from CSV.
-    } else {
-        angular_velocity = new AngularVelocity(11.0, 12.0, 13.0, 14.0);
-    }
-
-    if (CSV_HAS_ANGULAR_ACCELERATION) {
-        // Load from CSV.
-    } else {
-        angular_acceleration = new AngularAcceleration(11.0, 12.0, 13.0, 14.0);
-    }
-    
     is_moving = false;
 }
 

@@ -4,15 +4,6 @@
 #include <pthread.h>
 #include "System.hh"
 
-
-// TODO: Remove the notions of CSV.
-// Read boundary values from CSV file.
-#define CSV_HAS_POSITION 0
-#define CSV_HAS_VELOCITY 0
-#define CSV_HAS_ACCELERATION 0
-#define CSV_HAS_ANGULAR_VELOCITY 0
-#define CSV_HAS_ANGULAR_ACCELERATION 0
-
 // Interial mass of the care robot with safety module attached (kg).
 #define INERTIAL_MASS 100
 // Approximation of robot side length

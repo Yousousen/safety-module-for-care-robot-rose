@@ -1,4 +1,3 @@
-// TODO: Clean up the entire code. Order it logically.
 // Safety module
 // The module contains a pointer to a care robot, which provides the module
 // with a representation of a care robot that is useful to it.  In the file,
@@ -43,17 +42,13 @@
 
 /*
  * Maximum allowed values. Exceeding these values is unsafe behavior of the
- * robot. TODO: Obtain this from file or command line.
+ * robot.
  */
-#define MAX_KE 300
-#define MAX_RE 300
-#define MAX_FORCE 50
-#define MAX_TORQUE 50
-#define MAX_TORQUE_PAYLOAD 80
 
 /**** Prototypes ****/
 // Run the safety module
-ErrorCode_t roll();
+ErrorCode_t roll(int max_ke, int max_re, int max_force, int max_torque, int
+        max_torque_payload);
 
 /*** LED matrix functions ***/
 // Construct and destruct the frame buffer
@@ -132,7 +127,7 @@ static void* rt_retrieve_arm_torque(void* arg);
 static void* rt_retrieve_arm_position(void* arg);
 
 /* Thread to sample acceleration continuously.
- * Currently does the following (TODO: probably split):
+ * Does the following 
  * - set number of samples
  * - samples acceleration
  * - ∫ a dt
@@ -142,7 +137,7 @@ static void* rt_sample_acceleration(void* arg);
 
 /*
  * Thread to sample angular velocity continuously.
- * Currently does the following (TODO: probably split):
+ * Does the following 
  * - set number of samples
  * - samples angular velocity
  * - calculates rotational energy
@@ -263,6 +258,12 @@ const NullStream &operator<<(NullStream &&os, const T &value) {
 }
 
 /*** Global variables ***/
+int MAX_KE;
+int MAX_RE;
+int MAX_FORCE;
+int MAX_TORQUE;
+int MAX_TORQUE_PAYLOAD;
+
 struct Position* position = nullptr;
 struct Velocity* velocity = nullptr;
 struct Acceleration* acceleration = nullptr;
@@ -292,9 +293,32 @@ std::map<std::string, sem_t> semaphore;
 // Mutexes
 std::map<std::string, pthread_mutex_t> mutex;
 
-auto main() -> int {
+int main(int argc, char* argv[]) {
+    // Default values
+    int max_ke = 300;
+    int max_re = 300;
+    int max_force = 50;
+    int max_torque = 50;
+    int max_torque_payload = 80;
+
+    if(argc == 2) { 
+        max_ke = strtol(argv[1], NULL, 10);
+    } 
+    if(argc == 3) { 
+        max_re = strtol(argv[2], NULL, 10);
+    } 
+    if(argc == 4) { 
+        max_force = strtol(argv[3], NULL, 10);
+    } 
+    if(argc == 5) { 
+        max_torque = strtol(argv[4], NULL, 10);
+    } 
+    if(argc == 6) { 
+        max_torque_payload = strtol(argv[5], NULL, 10);
+    } 
+
     initialise();
-    int r = roll();
+    int r = roll(max_ke, max_re, max_force, max_torque, max_torque_payload);
     if (r != OK) return EXIT_FAILURE;
     destruct();
 }
@@ -361,7 +385,14 @@ static int destruct_mutexes() {
     }
     return OK;
 }
-ErrorCode_t roll() {
+ErrorCode_t roll(int max_ke, int max_re, int max_force, int max_torque, int
+        max_torque_payload) {
+    MAX_KE = max_ke;
+    MAX_RE = max_re;
+    MAX_FORCE = max_force;
+    MAX_TORQUE = max_torque;
+    MAX_TORQUE_PAYLOAD = max_torque_payload;
+
     // Initialise dezyne locator and runtime.
     IResolver iResolver({});
 
@@ -742,45 +773,14 @@ ErrorCode_t roll() {
 
 
 void initialise() {
+    position = new Position(0,0,0,0);
+    velocity = new Velocity(0,0,0,0);
+    acceleration = new Acceleration(0,0,0,0);
+    angular_acceleration = new AngularAcceleration(0,0,0,0);
+    angular_displacement = new AngularDisplacement(0,0,0,0);
+    angular_acceleration = new AngularAcceleration(0,0,0,0);
     // Create a rose representation
     rose = new CareRobotRose();
-
-    if (CSV_HAS_POSITION) {
-        // Load from CSV.
-    } else {
-        position = new Position(0,0,0,0);
-    }
-
-    if (CSV_HAS_VELOCITY) {
-        // Load from CSV.
-    } else {
-        velocity = new Velocity(0,0,0,0);
-    }
-
-    if (CSV_HAS_ACCELERATION) {
-        // Load from CSV.
-    } else {
-        acceleration = new Acceleration(0,0,0,0);
-    }
-
-    if (CSV_HAS_ANGULAR_ACCELERATION) {
-        // Load from CSV.
-    } else {
-        angular_acceleration = new AngularAcceleration(0,0,0,0);
-    }
-
-    if (CSV_HAS_ANGULAR_VELOCITY) {
-        // Load from CSV.
-    } else {
-        angular_displacement = new AngularDisplacement(0,0,0,0);
-    }
-
-    if (CSV_HAS_ANGULAR_ACCELERATION) {
-        // Load from CSV.
-    } else {
-        angular_acceleration = new AngularAcceleration(0,0,0,0);
-    }
-
 }
 
 void destruct() {
@@ -788,7 +788,7 @@ void destruct() {
     if (position != nullptr)             delete position;
     if (velocity != nullptr)             delete velocity;
     if (acceleration != nullptr)         delete acceleration;
-    if (angular_displacement != nullptr)     delete angular_displacement;
+    if (angular_displacement != nullptr) delete angular_displacement;
     if (angular_acceleration != nullptr) delete angular_acceleration;
 }
 

@@ -1,7 +1,7 @@
 # Documentation
 
 In the thesis, we used a Raspberry Pi 3 and Raspbian Buster for the safety
-module. We think that, with some minor adjustments the Raspberry Pi 4 could be
+module. We think that, with some minor adjustments, the Raspberry Pi 4 could be
 used as well. On a few places we note some minor adjustments that need to be
 made in case the safety module is installed on a Raspberry Pi 4, but we haven't
 tested it on a Raspberry Pi 4 fully so we are not sure what the implications
@@ -282,13 +282,4 @@ can be used to build the safety module. This can be done with a simple `make` in
 the directory. If all goes well, it generates an executeable called `sm`. The
 safety module can then be run with `sudo ./sm`. Sudo is required by Xenomai.
 
-## Some notes on running the safety module
-
 Press `q` followed by enter to stop running.
-
-
-Currently, only the kinetic energy check and rotational energy check are being
-executed, because the randomized values that are produced for the arm checks
-turn the red LED which is unnecessary if we just want to test the already
-implemented checks.
-Xenomai.
