@@ -272,7 +272,7 @@ We can run a testing program like `latency` as follows:
 To be able to run the safety module, we need to have the dezyne command line
 installed. Installation instructions can be found on Verum's website of Dezyne,
 at the time of writing
-[here](https://dezyne.org/dezyne/manual/dezyne.html#Installation) (but the
+[here](https://dezyne.org/documentation.html) (but the
 website is subject to change, either way the website can be found with a search on 'verum dezyne'). In our installation we used Dezyne version 2.9.0.
 
 ## Building and running the safety module
